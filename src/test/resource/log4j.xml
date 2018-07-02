@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<log4j:configuration xmlns:log4j="http://jakarta.apache.org/log4j/">
+
+    <!-- ================================= -->
+    <!-- Preserve messages in a local file -->
+    <!-- ================================= -->
+
+    <!-- A regular appender FIXME implement code that will close/reopen logs
+        on SIGHUP by logrotate FIXME make the paths configurable using the build
+        system -->
+    <!-- <appender name="FILE" class="org.apache.log4j.rolling.RollingFileAppender">
+         <param name="Append" value="true"/>
+         <param name="Threshold" value="TRACE"/>
+
+         <layout class="org.apache.log4j.EnhancedPatternLayout">
+             <param name="ConversionPattern" value="%d{ISO8601} %-5p [%c{3}] (%t) %m%n"/>
+         </layout>
+     </appender>-->
+
+    <Appenders>
+        <Console name="Console" target="SYSTEM_OUT">
+            <!--控制台只输出level及以上级别的信息（onMatch），其他的直接拒绝（onMismatch）
+                    此时对应 logger level 也应设置 为 trace-->
+            <ThresholdFilter level="trace" onMatch="ACCEPT" onMismatch="DENY"/>
+            <PatternLayout pattern="%d{[yyyy-MM-dd HH:mm:ss]}[%level][%msg][%l]%n"/>
+        </Console>
+    </Appenders>
+
+    <Loggers>
+        <Root level="debug">
+            <AppenderRef ref="Console"/>
+            <!-- <AppenderRef ref="ApplicationLog" /> -->
+        </Root>
+    </Loggers>
+
+
+</log4j:configuration>
