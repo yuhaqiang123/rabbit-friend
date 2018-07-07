@@ -5,7 +5,7 @@ package com.muppet.rabbitfriend.core;
  *
  * @description
  */
-public interface Producer {
+public interface Producer extends Lifecycle {
     public BaseExchange getExchange();
 
     public RoutingKey getDefaultRoutingkey();

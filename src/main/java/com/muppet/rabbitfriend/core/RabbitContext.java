@@ -1,9 +1,14 @@
 package com.muppet.rabbitfriend.core;
 
+import com.google.common.base.Charsets;
+import com.google.gson.Gson;
+import com.muppet.util.GsonUtil;
+import com.rabbitmq.client.AMQP;
 import com.rabbitmq.client.Address;
 import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.Connection;
 import com.rabbitmq.client.ConnectionFactory;
+import com.rabbitmq.client.Envelope;
 import org.apache.commons.lang.StringUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -25,6 +30,27 @@ public class RabbitContext {
 
     private Logger logger = LogManager.getLogger(this.getClass());
 
+    private Gson gson = GsonUtil.getGson();
+
+
+    private MessageConvert defaultMessageConvertor = new MessageConvert() {
+        @Override
+        public Message loads(String s, Envelope envelope, AMQP.BasicProperties basicProperties, byte[] bytes) {
+            try {
+                Message msg = gson.fromJson(new String(bytes, "UTF-8"), Message.class);
+                msg.setBasicProperties(basicProperties);
+                return msg;
+            } catch (Exception e) {
+                throw new RabbitFriendException(e);
+            }
+        }
+
+        @Override
+        public byte[] dump(Message message) {
+            return gson.toJson(message).getBytes(Charsets.UTF_8);
+        }
+    };
+
 
     private RabbitContext(RabbitConfiguration configuration) {
         this.configuration = configuration;
@@ -38,6 +64,8 @@ public class RabbitContext {
 
     public void start() {
         delegate = new RabbitmqDelegate(this);
+        BaseQueue defaultReplyQueue = new BaseQueue(getDefaultReplyQueue());
+        delegate.declareQueueIfPresent(defaultReplyQueue);
     }
 
 
@@ -66,7 +94,6 @@ public class RabbitContext {
     public void declareQueue(BaseQueue queue) {
         channelExecute(channel -> {
             try {
-                RabbitmqDelegate delegate = new RabbitmqDelegate(channel);
                 if (delegate.queueExist(queue.getName())) {
                     return queue;
                 }
@@ -120,5 +147,31 @@ public class RabbitContext {
     public RabbitContext setDelegate(RabbitmqDelegate delegate) {
         this.delegate = delegate;
         return this;
+    }
+
+    public String getDefaultReplyQueue() {
+        configuration.getDefaultReplyToQueue();
+    }
+
+
+    public MessageConvert getDefaultMessageConvertor() {
+        return defaultMessageConvertor;
+    }
+
+    public RabbitContext setDefaultMessageConvertor(MessageConvert defaultMessageConvertor) {
+        this.defaultMessageConvertor = defaultMessageConvertor;
+        return this;
+    }
+
+    public void registerConsumer(BaseConsumer consume) {
+        delegate.channelExecute(channel -> {
+            try {
+                //consumerTag 看看能不能用
+                channel.basicConsume(consume.getQueueName(), false, consume);
+            } catch (IOException e) {
+                throw new RabbitFriendException(e);
+            }
+            return null;
+        });
     }
 }

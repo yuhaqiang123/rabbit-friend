@@ -12,11 +12,26 @@ import java.util.Set;
 public class BaseQueue implements Queue {
     private String name;
 
-    private Boolean durable = false;
 
-    private Boolean exclusize = true;
+    /**
+     * rabbitmq Server重启后这个队列是否被重建，如果设置为true,这个队列会被持久化到磁盘上
+     * 但是里边的消息是否被持久化到磁盘上要看具体的消息的持久化设置
+     */
+    private Boolean durable = true;
 
-    private Boolean autoDelete = true;
+
+    /**
+     * 排他的队列
+     * 1.只对首次声明它的连接（Connection）可见
+     * 2.会在其连接断开的时候自动删除
+     */
+    private Boolean exclusize = false;
+
+
+    /**
+     * 在该队列最后一个消费者断开连接的时候自动被删除
+     */
+    private Boolean autoDelete = false;
 
     private Map<String, Object> arguments;
 
@@ -27,11 +42,6 @@ public class BaseQueue implements Queue {
 
     public BaseQueue(String name) {
         this.setName(name);
-    }
-
-    @Override
-    public void setHeaders(String key, String value) {
-
     }
 
     @Override
@@ -87,5 +97,11 @@ public class BaseQueue implements Queue {
     public BaseQueue setArguments(Map<String, Object> arguments) {
         this.arguments = arguments;
         return this;
+    }
+
+    @Override
+    public Map setHeaderEntry(String key, Object value) {
+        arguments.put(key, value);
+        return arguments;
     }
 }

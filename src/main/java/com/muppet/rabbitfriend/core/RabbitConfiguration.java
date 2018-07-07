@@ -1,12 +1,11 @@
 package com.muppet.rabbitfriend.core;
 
-import com.rabbitmq.client.Address;
+import com.google.common.base.Charsets;
+import com.google.gson.Gson;
+import com.muppet.util.GsonUtil;
+import com.rabbitmq.client.AMQP;
 import com.rabbitmq.client.Connection;
-import com.rabbitmq.client.ConnectionFactory;
-import org.apache.commons.lang.StringUtils;
-import org.springframework.cglib.core.CollectionUtils;
-
-import java.io.IOException;
+import com.rabbitmq.client.Envelope;
 
 /**
  * Created by yuhaiqiang on 2018/6/28.
@@ -31,6 +30,13 @@ public class RabbitConfiguration {
     private Integer channelPoolSize;
 
     private Connection connection;
+
+    private UuidGenerate uuidGenerator;
+
+    private String defaultReplyToQueue = "com.muppet.rabbitfriend.default.replyto";
+
+
+
 
     public RabbitContext getRabbitContext() {
         return RabbitContext.newRabbitContext(this);
@@ -112,4 +118,24 @@ public class RabbitConfiguration {
     public void start() {
 
     }
+
+    public UuidGenerate getUuidGenerator() {
+        return uuidGenerator;
+    }
+
+    public <T> RabbitConfiguration setUuidGenerator(UuidGenerate uuidGenerator) {
+        this.uuidGenerator = uuidGenerator;
+        return this;
+    }
+
+    public String getDefaultReplyToQueue() {
+        return defaultReplyToQueue;
+    }
+
+    public RabbitConfiguration setDefaultReplyToQueue(String defaultReplyToQueue) {
+        this.defaultReplyToQueue = defaultReplyToQueue;
+        return this;
+    }
+
+
 }

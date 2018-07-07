@@ -5,5 +5,12 @@ package com.muppet.rabbitfriend.core;
  *
  * @description
  */
-public interface DefferedMessage extends Message {
+public interface DefferedMessage {
+
+
+    //private Integer defferedTime;
+
+    public DefferedMessage setDefferedTime(Integer defferedTime);
+
+    public Integer getDefferedTime();
 }

@@ -99,15 +99,26 @@ public class RabbitmqDelegate {
         });
     }
 
+    public void declareQueueIfPresent(BaseQueue queue) {
+        if (!queueExist(queue.getName())) {
+            context.declareQueue(queue);
+        }
+    }
+
     public void safeSend(Message message, BaseExchange baseExchange) {
         new RecoverableSensder(message, baseExchange).send();
     }
+
+    private byte[] getData(Message message) {
+        return context.getDefaultMessageConvertor().dump(message);
+    }
+
 
     public void simpleSend(Message message, BaseExchange baseExchange) {
         channelExecute(channel -> {
             try {
                 //message.getHeaders()
-                channel.basicPublish(baseExchange.getName(), message.getRoutingkey(), message.getBasicProperties(), message.getData());
+                channel.basicPublish(baseExchange.getName(), message.getRoutingkey(), message.getBasicProperties(), getData(message));
             } catch (IOException e) {
                 throw new RabbitFriendException(e);
             }
