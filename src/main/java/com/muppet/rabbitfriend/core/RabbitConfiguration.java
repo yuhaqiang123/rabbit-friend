@@ -19,23 +19,21 @@ public class RabbitConfiguration {
 
     private String[] ips;
 
-    private Boolean automaticRecoveryEnabled;
+    private Boolean automaticRecoveryEnabled = true;
 
-    private Integer requestHeartBeat;
+    private Integer requestHeartBeat = 60;
 
-    private Integer networkRecoveryInterval;
+    private Integer networkRecoveryInterval = 1;
 
-    private Integer connectionTimeout;
+    private Integer connectionTimeout = 10;
 
-    private Integer channelPoolSize;
+    private Integer channelPoolSize = 10;
 
     private Connection connection;
 
     private UuidGenerate uuidGenerator;
 
     private String defaultReplyToQueue = "com.muppet.rabbitfriend.default.replyto";
-
-
 
 
     public RabbitContext getRabbitContext() {

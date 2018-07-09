@@ -26,11 +26,13 @@ public class RabbitContext {
 
     private RabbitConfiguration configuration;
 
-    private RabbitmqDelegate delegate;
+    private RabbitmqDelegateFactory delegateFactory;
 
     private Logger logger = LogManager.getLogger(this.getClass());
 
     private Gson gson = GsonUtil.getGson();
+
+    private RabbitmqDelegate defaultDelegate;
 
 
     private MessageConvert defaultMessageConvertor = new MessageConvert() {
@@ -63,9 +65,11 @@ public class RabbitContext {
     }
 
     public void start() {
-        delegate = new RabbitmqDelegate(this);
+        delegateFactory = new RabbitmqDelegateFactory(this);
+        delegateFactory.start();
         BaseQueue defaultReplyQueue = new BaseQueue(getDefaultReplyQueue());
-        delegate.declareQueueIfPresent(defaultReplyQueue);
+        defaultDelegate = delegateFactory.acquireDelegate();
+        defaultDelegate.declareQueueIfAbsent(defaultReplyQueue);
     }
 
 
@@ -85,24 +89,11 @@ public class RabbitContext {
 
     }
 
-    public void declareQueue(String name) {
+    public BaseQueue declareQueueIfAbsent(String name) {
         BaseQueue queue = new BaseQueue();
         queue.setName(name);
-        declareQueue(queue);
-    }
-
-    public void declareQueue(BaseQueue queue) {
-        channelExecute(channel -> {
-            try {
-                if (delegate.queueExist(queue.getName())) {
-                    return queue;
-                }
-                channel.queueDeclare(queue.getName(), queue.getDurable(), queue.getExclusize(), queue.getAutoDelete(), queue.getArguments());
-                return queue;
-            } catch (Exception e) {
-                throw new RabbitFriendException(e);
-            }
-        });
+        defaultDelegate.declareQueueIfAbsent(queue);
+        return queue;
     }
 
 
@@ -112,21 +103,24 @@ public class RabbitContext {
             try {
                 com.rabbitmq.client.AMQP.Exchange.DeclareOk declareOk = channel.exchangeDeclare(exchange.getName(), exchange.getType().toString(), exchange.getDurable(), exchange.getAutoDelete(), null);
                 return exchange;
-            } catch (IOException e) {
+            } catch (Exception e) {
                 throw new RabbitFriendException(e);
+                //return null;
             }
         });
     }
 
     public <T> T channelExecute(Function<Channel, T> function) {
-        return delegate.channelExecute(function);
+        return defaultDelegate.channelExecute(function);
     }
 
 
-    public Exchange declareExchange(String name, ExchangeType type) {
+    public BaseExchange declareExchangeIfabsent(String name, ExchangeType type) {
         return channelExecute(channel -> {
             BaseExchange exchange = new BaseExchange(name, type);
+            //if (!defaultDelegate.exchangeExist(name)) {
             declareExchange(exchange);
+            //}
             return exchange;
         });
     }
@@ -140,17 +134,9 @@ public class RabbitContext {
         return this;
     }
 
-    public RabbitmqDelegate getDelegate() {
-        return delegate;
-    }
-
-    public RabbitContext setDelegate(RabbitmqDelegate delegate) {
-        this.delegate = delegate;
-        return this;
-    }
 
     public String getDefaultReplyQueue() {
-        configuration.getDefaultReplyToQueue();
+        return configuration.getDefaultReplyToQueue();
     }
 
 
@@ -164,14 +150,31 @@ public class RabbitContext {
     }
 
     public void registerConsumer(BaseConsumer consume) {
-        delegate.channelExecute(channel -> {
+        consume.start();
+        defaultDelegate.channelExecute(channel -> {
             try {
                 //consumerTag 看看能不能用
-                channel.basicConsume(consume.getQueueName(), false, consume);
+                consume.setChannel(channel);
+                channel.basicConsume(consume.getQueueName(), consume.autoAck(), consume);
             } catch (IOException e) {
                 throw new RabbitFriendException(e);
             }
             return null;
         });
+    }
+
+    public void bind(BaseExchange exchange, BaseQueue queue, RoutingKey routingKey) {
+        defaultDelegate.channelExecute(channel -> {
+            try {
+                channel.queueBind(queue.getName(), exchange.getName(), routingKey.getRoutingKey());
+            } catch (IOException e) {
+                throw new RabbitFriendException(e);
+            }
+            return null;
+        });
+    }
+
+    public RabbitmqDelegateFactory getDelegateFactory() {
+        return delegateFactory;
     }
 }

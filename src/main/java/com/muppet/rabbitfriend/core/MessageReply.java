@@ -1,17 +1,21 @@
 package com.muppet.rabbitfriend.core;
 
+import com.muppet.util.GsonTransient;
+
 /**
  * Created by yuhaiqiang on 2018/6/28.
  *
  * @description
  */
-public class MessageReply<T> extends Message {
+public class MessageReply extends Message {
 
-    private NeedReplyMessage requestMessage;
 
-    private Boolean success;
+    @GsonTransient
+    private transient NeedReplyMessage requestMessage;
 
-    private T error;
+    protected Boolean success;
+
+    protected ErrorCode error;
 
     public Boolean getSuccess() {
         return success;
@@ -22,7 +26,7 @@ public class MessageReply<T> extends Message {
         return this;
     }
 
-    public MessageReply setError(T error) {
+    public MessageReply setError(ErrorCode error) {
         this.success = false;
         this.error = error;
         return this;
@@ -37,7 +41,7 @@ public class MessageReply<T> extends Message {
         return this;
     }
 
-    public T getError() {
+    public ErrorCode getError() {
         return error;
     }
 

@@ -8,7 +8,7 @@ import java.util.List;
  *
  * @description
  */
-abstract class AsyncSafeCallback implements Callback<MessageReply<CommonError>> {
+public abstract class AsyncSafeCallback implements Callback<MessageReply> {
 
     protected List<AsyncSafableObject> backups = new LinkedList<>();
 

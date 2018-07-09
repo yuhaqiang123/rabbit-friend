@@ -35,45 +35,22 @@ import java.util.function.Function;
 public class RabbitmqDelegate {
 
 
-    private Connection connection;
-    private ChannelPool pool;
+    private Channel defaultChannel;
 
     private RabbitConfiguration configuration;
-    private Integer channelPoolSize;
+
+    private Connection connection;
 
     private RabbitContext context;
 
     private Logger logger = LogManager.getLogger(this.getClass());
 
-    public RabbitmqDelegate(RabbitContext context) {
+
+    public RabbitmqDelegate(RabbitContext context, Connection connection, Channel channel) {
+        this.defaultChannel = channel;
+        this.connection = connection;
         this.context = context;
-        configuration = context.getConfiguration();
-    }
-
-
-    public void start() {
-        ConnectionFactory connectionFactory = new ConnectionFactory();
-        connectionFactory.setAutomaticRecoveryEnabled(configuration.getAutomaticRecoveryEnabled());
-        connectionFactory.setConnectionTimeout(configuration.getConnectionTimeout());
-        //TODO
-        //connectionFactory.setExceptionHandler();
-        connectionFactory.setNetworkRecoveryInterval(configuration.getNetworkRecoveryInterval());
-        connectionFactory.setRequestedHeartbeat(configuration.getRequestHeartBeat());
-        //TODO
-        //connectionFactory.setSharedExecutor();
-        //TODO
-        //connectionFactory.setThreadFactory();
-        connectionFactory.setUsername(configuration.getUsername());
-        connectionFactory.setPassword(configuration.getPassword());
-        //ExcutorService
-        //connectionFactory.newConnection();
-        try {
-            connection = connectionFactory.newConnection(Address.parseAddresses(StringUtils.join(configuration.getIps(), ",")));
-            pool = new ChannelPool(channelPoolSize, connection);
-        } catch (IOException e) {
-            throw new RabbitFriendException(e);
-        }
-
+        this.configuration = context.getConfiguration();
     }
 
 
@@ -81,28 +58,43 @@ public class RabbitmqDelegate {
         return channelExecute(channel -> {
             try {
                 channel.exchangeDeclarePassive(name);
-                return true;
-            } catch (IOException e) {
+                return false;
+            } catch (Exception e) {
                 return false;
             }
         });
     }
+
+    public void declareQueue(BaseQueue queue) {
+        channelExecute(channel -> {
+            try {
+                /*if (delegate.queueExist(queue.getName())) {
+                    return queue;
+                }*/
+                channel.queueDeclare(queue.getName(), queue.getDurable(), queue.getExclusize(), queue.getAutoDelete(), queue.getArguments());
+                return queue;
+            } catch (Exception e) {
+                throw new RabbitFriendException(e);
+            }
+        });
+    }
+
 
     public boolean queueExist(String name) {
         return channelExecute(channel -> {
             try {
                 channel.queueDeclarePassive(name);
-                return true;
-            } catch (IOException e) {
+                return false;
+            } catch (Exception e) {
                 return false;
             }
         });
     }
 
-    public void declareQueueIfPresent(BaseQueue queue) {
-        if (!queueExist(queue.getName())) {
-            context.declareQueue(queue);
-        }
+    public void declareQueueIfAbsent(BaseQueue queue) {
+        //if (!queueExist(queue.getName())) {
+        declareQueue(queue);
+        //}
     }
 
     public void safeSend(Message message, BaseExchange baseExchange) {
@@ -304,17 +296,16 @@ public class RabbitmqDelegate {
     }
 
     public <T> T channelExecute(Function<Channel, T> function) {
-        Channel channel = pool.acquire();
         try {
             //TODO 使用的默认头配置
-            T t = function.apply(channel);
+            T t = function.apply(defaultChannel);
             return t;
         } catch (RabbitFriendException e) {
             throw e;
         } finally {
-            pool.returnChannel(channel);
         }
     }
+
 
     public class RecoverableSensder {
 
@@ -330,7 +321,7 @@ public class RabbitmqDelegate {
         void send() {
             channelExecute((channel) -> {
                 try {
-                    channel.basicPublish(exchange.toString(), message.getRoutingkey(), true, message.getBasicProperties(), message.getData());
+                    channel.basicPublish(exchange.getName(), message.getRoutingkey(), true, message.getBasicProperties(), getData(message));
                 } catch (ShutdownSignalException e) {
                     if (!(connection instanceof AutorecoveringConnection) || configuration.getIps().length <= 1) {
                         // the connection is not recoverable
@@ -377,7 +368,8 @@ public class RabbitmqDelegate {
 
                 channelExecute(channel -> {
                     try {
-                        channel.basicPublish(exchange.toString(), message.getRoutingkey(), true, message.getBasicProperties(), message.getData());
+                        channel.basicPublish(exchange.toString(), message.getRoutingkey(), true, message.getBasicProperties(), getData(message))
+                        ;
                         return true;
                     } catch (ShutdownSignalException | IOException e) {
                         logger.error("failed to publish message to exchange[{}] ,routing key is[{}]", exchange.getName(), message.getRoutingkey());
@@ -391,5 +383,12 @@ public class RabbitmqDelegate {
         }
     }
 
+    public Channel getDefaultChannel() {
+        return defaultChannel;
+    }
 
+    public RabbitmqDelegate setDefaultChannel(Channel defaultChannel) {
+        this.defaultChannel = defaultChannel;
+        return this;
+    }
 }

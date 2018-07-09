@@ -1,15 +1,15 @@
 package com.muppet.rabbitfriend.core;
 
+import com.muppet.util.DateUtils;
 import com.rabbitmq.client.AMQP;
-import com.rabbitmq.client.BasicProperties;
-import org.apache.commons.lang.time.DateUtils;
+import com.rabbitmq.client.AMQP.BasicProperties;
+import com.rabbitmq.client.Channel;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import java.util.Calendar;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.ConcurrentHashMap;
@@ -34,38 +34,50 @@ public class RpcProducer extends BaseProducer implements Producer {
 
     private BaseQueue replyToQueue;
 
+    private BaseExchange exchange;
+
+    private RabbitmqDelegate delegate;
+
     public BaseExchange getExchange() {
-        return null;
+        return exchange;
     }
 
     public RoutingKey getRoutingKey() {
         return null;
     }
 
-    public void RpcProducer(RabbitContext context) {
+    public RpcProducer(RabbitContext context) {
         this.context = context;
     }
 
+    private Logger logger = LogManager.getLogger(this.getClass());
 
     @Override
     public void start() {
         uuidGenerate = context.getConfiguration().getUuidGenerator();
+        delegate = context.getDelegateFactory().acquireDelegate();
+        replyTo = context.getDefaultReplyQueue();
+        //delegate.
 
         replyToQueue = new BaseQueue();
         replyToQueue.setName(replyTo);
-        context.getDelegate().declareQueueIfPresent(replyToQueue);
-        context.registerConsumer(new BaseConsumer() {
+        delegate.declareQueueIfAbsent(replyToQueue);
+
+
+        context.bind(exchange, replyToQueue, new RoutingKey(replyTo));
+
+        context.registerConsumer(new BaseConsumer(context) {
             @Override
-            String getQueueName() {
+            protected String getQueueName() {
                 return replyTo;
             }
 
             @Override
             public void handle(Message message) {
-                MessageReply<ErrorCode> reply = message.cast();
-                replyEnvelopes.get(replyTo).get(reply.getCorrelationId());
-                
-
+                MessageReply reply = message.cast();
+                Envelope envelope = replyEnvelopes.get(replyTo).get(reply.getCorrelationId());
+                envelope.ack(reply);
+                reply.ack();
             }
         });
         synchronized (replyEnvelopes) {
@@ -73,12 +85,11 @@ public class RpcProducer extends BaseProducer implements Producer {
         }
 
         //定义默认的replyTo ，作为不带repLyTo字段的NeedReplyMessage的消息,接受回复消息的字段
-
     }
 
     @Override
     public void destroy() {
-
+        context.getDelegateFactory().releaseDelegate(delegate);
     }
 
     @Override
@@ -126,10 +137,11 @@ public class RpcProducer extends BaseProducer implements Producer {
                     .expiration(expirationTime)
                     .timestamp(Calendar.getInstance().getTime())
                     .replyTo(replyTo)
-                    .headers(message.getHeaders());
+                    .headers(message.setHeaderEntry(Producer.HEADER_EXCHANGE_NAME, getExchange().getName()));
             properties = builder.build();
         }
-        message.setProperties(properties);
+        message.setBasicProperties(properties);
+
         postEvalateBasicProperties(message, properties);
     }
 
@@ -145,7 +157,7 @@ public class RpcProducer extends BaseProducer implements Producer {
     public void send(NeedReplyMessage message, AsyncSafeCallback callback) {
         evalateBasicProperties(message);
         String correlationId = message.getId();
-        ConcurrentHashMap<String, Envelope> envelopes = replyEnvelopes.get(message.getProperties().getReplyTo());
+        ConcurrentHashMap<String, Envelope> envelopes = replyEnvelopes.get(message.getBasicProperties().getReplyTo());
         Envelope envelope = new Envelope() {
             AtomicBoolean called = new AtomicBoolean(false);
             AtomicBoolean started = new AtomicBoolean(false);
@@ -183,6 +195,17 @@ public class RpcProducer extends BaseProducer implements Producer {
                     return;
                 }
                 envelopes.remove(correlationId);
+                MessageReply reply = new MessageReply() {{
+                    success = false;
+                    error = new ErrorCode() {
+                        @Override
+                        public String getErrorInfo() {
+                            String timeStr = DateUtils.format(message.getBasicProperties().getTimestamp());
+                            return String.format("message[%s] timeout after [%s] ms since [%s]", message.getId(), message.getTimeout(), timeStr);
+                        }
+                    };
+                }};
+                callback.run(reply);
             }
 
             @Override
@@ -192,9 +215,10 @@ public class RpcProducer extends BaseProducer implements Producer {
         };
 
         envelopes.put(correlationId, envelope);
-        context.getDelegate().safeSend(message, getExchange());
+        delegate.safeSend(message, getExchange());
         envelope.start();
     }
+
 
     public void send(NeedReplyMessage message) {
 
@@ -216,6 +240,21 @@ public class RpcProducer extends BaseProducer implements Producer {
 
     public RpcProducer setReplyTo(String replyTo) {
         this.replyTo = replyTo;
+        return this;
+    }
+
+    public RpcProducer setExchange(BaseExchange exchange) {
+        this.exchange = exchange;
+        return this;
+    }
+
+    @Override
+    public Channel getChannel() {
+        return delegate.getDefaultChannel();
+    }
+
+    public RpcProducer setChannel(Channel channel) {
+        this.delegate.getDefaultChannel();
         return this;
     }
 }

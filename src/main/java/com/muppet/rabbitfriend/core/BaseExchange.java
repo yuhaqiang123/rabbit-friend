@@ -24,7 +24,7 @@ public class BaseExchange implements Exchange {
 
     private Map<String, Object> arguments;
 
-    public BaseExchange(String names, ExchangeType type) {
+    public BaseExchange(String name, ExchangeType type) {
         this.name = name;
         this.type = type;
     }
@@ -33,10 +33,6 @@ public class BaseExchange implements Exchange {
         this.channel = channel;
     }
 
-    @Override
-    public void setHeaders(String key, String values) {
-
-    }
 
     @Override
     public Map<String, String> getHeaders() {
@@ -91,6 +87,12 @@ public class BaseExchange implements Exchange {
         return this;
     }
 
-    //返回Bindings
+    @Override
+    public Map setHeaderEntry(String key, Object value) {
+        return null;
+    }
+
+
+//返回Bindings
 
 }

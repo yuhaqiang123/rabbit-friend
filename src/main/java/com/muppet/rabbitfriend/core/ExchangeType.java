@@ -6,8 +6,8 @@ package com.muppet.rabbitfriend.core;
  * @description
  */
 public enum ExchangeType {
-    Topic,
-    Fanout,
-    Direct,
-    Headers
+    topic,
+    fanout,
+    direct,
+    headers
 }

@@ -1,10 +1,13 @@
 package com.muppet.rabbitfriend.core;
 
+import com.muppet.util.GsonTransient;
 import com.rabbitmq.client.BasicProperties;
 
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
+import java.util.function.Supplier;
 
 /**
  * Created by yuhaiqiang on 2018/6/28.
@@ -13,11 +16,14 @@ import java.util.concurrent.TimeUnit;
  */
 public class NeedReplyMessage extends Message implements TimeoutMessage {
 
-    protected BasicProperties properties;
 
-    private String replyTo;
+    @GsonTransient
+    private transient String replyTo;
 
-    private Long timeout;
+    private Long timeout = 30 * 1000L;
+
+    @GsonTransient
+    private transient Function<MessageReply, Void> replyFunc;
 
     public String getReplyTo() {
         return replyTo;
@@ -30,20 +36,16 @@ public class NeedReplyMessage extends Message implements TimeoutMessage {
 
     @Override
     public TimeoutMessage setTimeout(Long timeout) {
-        return null;
+        this.timeout = timeout;
+        return this;
     }
 
     public Long getTimeout() {
-        return null;
+        return timeout;
     }
 
 
-    public BasicProperties getProperties() {
-        return properties;
-    }
-
-    public NeedReplyMessage setProperties(BasicProperties properties) {
-        this.properties = properties;
-        return this;
+    public void reply(MessageReply reply) {
+        replyFunc.apply(reply);
     }
 }

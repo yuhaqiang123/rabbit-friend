@@ -5,10 +5,12 @@ package com.muppet.rabbitfriend.core;
  *
  * @description
  */
-public interface Producer extends Lifecycle {
+public interface Producer extends RabbitFriendComponent {
     public BaseExchange getExchange();
 
     public RoutingKey getDefaultRoutingkey();
 
     public String getName();
+
+    final String HEADER_EXCHANGE_NAME = "EXCHANGE_NAME";
 }

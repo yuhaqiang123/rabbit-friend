@@ -7,6 +7,9 @@ import com.rabbitmq.client.AMQP.BasicProperties;
 import java.util.Map;
 import java.util.HashMap;
 import java.util.Set;
+import java.util.function.BiFunction;
+import java.util.function.Function;
+import java.util.function.Supplier;
 
 /**
  * Created by yuhaiqiang on 2018/6/28.
@@ -16,21 +19,23 @@ import java.util.Set;
 public abstract class Message implements HeadersConfigurable<Object> {
 
 
-    private String id;
+    protected String id;
 
-    private String routingkey;
-
-    @GsonTransient
-    private BasicProperties basicProperties;
+    protected String routingkey;
 
     @GsonTransient
-    private boolean persistent = true;
+    protected transient BasicProperties basicProperties;
 
     @GsonTransient
-    private Integer priority = 0;
+    protected transient boolean persistent = true;
 
     @GsonTransient
-    private Map<String, Object> headers = new HashMap<>();
+    protected transient Integer priority = 0;
+
+    protected transient BiFunction<Boolean, Boolean, Void> ackFunc;
+
+    @GsonTransient
+    protected transient Map<String, Object> headers = new HashMap<>();
 
 
     public String getId() {
@@ -80,21 +85,35 @@ public abstract class Message implements HeadersConfigurable<Object> {
 
     @Override
     public Map<String, Object> setHeaderEntry(String key, Object value) {
-        return null;
+        headers.put(key, value);
+        return headers;
     }
 
     @Override
     public Set<String> getEnabledHeaderKeys() {
-        return null;
+        return headers.keySet();
     }
 
     @Override
     public Map<String, Object> getHeaders() {
-        return null;
+        return headers;
     }
 
 
     public <T> T cast() {
         return (T) this;
+    }
+
+
+    private void ack(Boolean ack, Boolean requeue) {
+        ackFunc.apply(ack, requeue);
+    }
+
+    public void ack() {
+        ack(true, false);
+    }
+
+    public void nack(Boolean requeue) {
+        ack(false, requeue);
     }
 }

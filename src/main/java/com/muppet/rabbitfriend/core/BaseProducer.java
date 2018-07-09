@@ -7,7 +7,7 @@ import java.util.List;
  *
  * @description
  */
-public class BaseProducer implements Producer {
+public abstract class BaseProducer implements Producer {
 
     abstract class Envelope {
 
@@ -37,5 +37,16 @@ public class BaseProducer implements Producer {
     @Override
     public String getName() {
         return null;
+    }
+
+
+    @Override
+    public void start() {
+
+    }
+
+    @Override
+    public void destroy() {
+
     }
 }
