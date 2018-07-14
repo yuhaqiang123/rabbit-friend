@@ -37,6 +37,9 @@ public class TestChannel {
     String ROUTINGKEY = "Y";
     String ip = "10.96.83.254";
 
+
+
+
     @Before
     public void testBefore() {
         ConnectionFactory factory = new ConnectionFactory();

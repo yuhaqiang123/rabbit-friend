@@ -12,5 +12,4 @@ public interface Producer extends RabbitFriendComponent {
 
     public String getName();
 
-    final String HEADER_EXCHANGE_NAME = "EXCHANGE_NAME";
 }

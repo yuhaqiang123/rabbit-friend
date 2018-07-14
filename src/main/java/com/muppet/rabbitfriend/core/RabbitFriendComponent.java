@@ -8,5 +8,4 @@ import com.rabbitmq.client.Channel;
  * @description
  */
 public interface RabbitFriendComponent extends Lifecycle {
-    public Channel getChannel();
 }

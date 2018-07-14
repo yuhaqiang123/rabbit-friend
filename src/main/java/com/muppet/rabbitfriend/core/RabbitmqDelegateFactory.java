@@ -4,6 +4,9 @@ import com.rabbitmq.client.Address;
 import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.Connection;
 import com.rabbitmq.client.ConnectionFactory;
+import com.rabbitmq.client.Consumer;
+import com.rabbitmq.client.ExceptionHandler;
+import com.rabbitmq.client.TopologyRecoveryException;
 import org.apache.commons.lang.StringUtils;
 
 import java.io.IOException;

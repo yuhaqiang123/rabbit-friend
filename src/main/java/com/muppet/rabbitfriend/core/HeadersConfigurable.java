@@ -10,6 +10,9 @@ import java.util.Set;
  * @description
  */
 public interface HeadersConfigurable<T> {
+
+    public final String DEFAULT_PREFIX = HeadersConfigurable.class.getName() + ".";
+
     public Map<String, T> setHeaderEntry(String key, T value);
 
     public Set<String> getEnabledHeaderKeys();

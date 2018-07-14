@@ -14,6 +14,9 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.function.Consumer;
 import java.util.function.Function;
 
 /**
@@ -35,6 +38,8 @@ public class RabbitContext {
     private RabbitmqDelegate defaultDelegate;
 
 
+    private Map<Class, Consumer<?>> callbackErrorHandler = new HashMap<>();
+
     private MessageConvert defaultMessageConvertor = new MessageConvert() {
         @Override
         public Message loads(String s, Envelope envelope, AMQP.BasicProperties basicProperties, byte[] bytes) {
@@ -53,6 +58,14 @@ public class RabbitContext {
         }
     };
 
+    public <T> void registerCallbackErrorHandler(Class<T> clazz, Consumer<T> consumer) {
+        callbackErrorHandler.put(clazz, consumer);
+    }
+
+
+    public RpcProducer createRpcProducer(String exchangeName) {
+        return new RpcProducer(this).setExchange(new BaseExchange(exchangeName));
+    }
 
     private RabbitContext(RabbitConfiguration configuration) {
         this.configuration = configuration;
@@ -96,12 +109,17 @@ public class RabbitContext {
         return queue;
     }
 
+    public BaseQueue declareQueue(BaseQueue queue) {
+        defaultDelegate.declareQueue(queue);
+        return queue;
+    }
+
 
     public void declareExchange(BaseExchange exchange) {
         //TODO 初始化交换机的默认参数
         channelExecute((channel) -> {
             try {
-                com.rabbitmq.client.AMQP.Exchange.DeclareOk declareOk = channel.exchangeDeclare(exchange.getName(), exchange.getType().toString(), exchange.getDurable(), exchange.getAutoDelete(), null);
+                com.rabbitmq.client.AMQP.Exchange.DeclareOk declareOk = channel.exchangeDeclare(exchange.getName(), exchange.getType().toString(), exchange.getDurable(), exchange.getAutoDelete(), exchange.getHeaders());
                 return exchange;
             } catch (Exception e) {
                 throw new RabbitFriendException(e);
@@ -176,5 +194,9 @@ public class RabbitContext {
 
     public RabbitmqDelegateFactory getDelegateFactory() {
         return delegateFactory;
+    }
+
+    public <T> Consumer<T> getCallbackErrorHandler(Class<T> clazz) {
+        return (Consumer<T>) callbackErrorHandler.get(clazz);
     }
 }

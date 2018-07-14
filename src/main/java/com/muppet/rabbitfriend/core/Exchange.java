@@ -5,5 +5,5 @@ package com.muppet.rabbitfriend.core;
  *
  * @description
  */
-public interface Exchange extends HeadersConfigurable {
+public interface Exchange extends HeadersConfigurable<Object> {
 }

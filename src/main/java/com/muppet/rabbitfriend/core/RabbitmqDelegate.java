@@ -1,27 +1,22 @@
 package com.muppet.rabbitfriend.core;
 
-import com.rabbitmq.client.Address;
 import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.ConfirmListener;
 import com.rabbitmq.client.Connection;
-import com.rabbitmq.client.ConnectionFactory;
 import com.rabbitmq.client.ShutdownSignalException;
 import com.rabbitmq.client.impl.recovery.AutorecoveringConnection;
 import com.rabbitmq.client.impl.recovery.RecoveryAwareAMQConnection;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang.reflect.FieldUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.springframework.security.util.FieldUtils;
 
 import java.io.IOException;
 import java.lang.reflect.Field;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.SortedSet;
 import java.util.TreeSet;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
@@ -350,7 +345,7 @@ public class RabbitmqDelegate {
             // so we use reflection to fast the process
 
             try {
-                RecoveryAwareAMQConnection delegate = (RecoveryAwareAMQConnection) FieldUtils.getFieldValue(connection, "delegate");
+                RecoveryAwareAMQConnection delegate = (RecoveryAwareAMQConnection) FieldUtils.readDeclaredField(connection, "delegate");
                 Field _missedHeartbeats = FieldUtils.getField(RecoveryAwareAMQConnection.class, "_missedHeartbeats");
                 _missedHeartbeats.setAccessible(true);
                 _missedHeartbeats.set(delegate, 100);

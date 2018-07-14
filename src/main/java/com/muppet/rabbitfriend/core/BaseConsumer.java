@@ -8,6 +8,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParseException;
 import com.google.gson.JsonSerializationContext;
+import com.muppet.util.AspectAddPropertyUtil;
 import com.muppet.util.ExceptionDSL;
 import com.muppet.util.GsonTransient;
 import com.muppet.util.GsonTypeCoder;
@@ -28,9 +29,11 @@ import org.reflections.Reflections;
 import java.beans.PropertyDescriptor;
 import java.io.IOException;
 import java.lang.reflect.Type;
+import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -46,7 +49,7 @@ import java.util.function.Supplier;
  */
 public abstract class BaseConsumer implements Consumer, Lifecycle, Consume, Consume.AutoAckEnable, RabbitFriendComponent {
 
-    private RabbitContext context;
+    protected RabbitContext context;
 
     private Logger logger = LogManager.getLogger(this.getClass());
 
@@ -56,11 +59,16 @@ public abstract class BaseConsumer implements Consumer, Lifecycle, Consume, Cons
 
     protected Channel channel;
 
-    private UuidGenerate uuidGenerate;
+    protected UuidGenerate uuidGenerate;
 
-    private RabbitmqDelegate delegate;
+    protected RabbitmqDelegate delegate;
 
     private RpcProducer rpcProducer;
+
+    private java.util.function.BiConsumer<Message, Throwable> exceptionHandler;
+
+    private List<MessageConsumerExtractor> extractors = new ArrayList<>();
+
 
     public BaseConsumer(RabbitContext context) {
         this.context = context;
@@ -87,6 +95,72 @@ public abstract class BaseConsumer implements Consumer, Lifecycle, Consume, Cons
     public void start() {
         delegate = context.getDelegateFactory().acquireDelegate();
         uuidGenerate = context.getConfiguration().getUuidGenerator();
+    }
+
+
+    protected boolean checkMessage(Message message) {
+        if (message instanceof TimeoutMessage) {
+            TimeoutMessage timeoutMessage = (TimeoutMessage) message;
+            timeoutMessage.getTimeout();
+            Date createDate = message.getBasicProperties().getTimestamp();
+            Long timeout = Long.valueOf(message.getBasicProperties().getHeaders().get(TimeoutMessage.TIMEOUT_KEY).toString());
+            AspectAddPropertyUtil.addGetTimeoutAspect(timeoutMessage, timeout);
+            if (timeoutMessage.getTimeout() <= System.currentTimeMillis() - createDate.getTime()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    @Override
+    public void handleDelivery(String consumerTag, Envelope envelope, AMQP.BasicProperties properties, byte[] body) throws IOException {
+        Message message = context.getDefaultMessageConvertor().loads(consumerTag, envelope, properties, body);
+        message.setBasicProperties(properties);
+
+        boolean isTimeout = checkMessage(message);
+        //if (isTimeout) {
+        //TODO reply the error MessageReply
+        //z  return;
+        //}
+        AtomicBoolean acked = new AtomicBoolean(false);
+        BiFunction<Boolean, Boolean, Void> ackFunc = ((ack, requeue) -> {
+            if (!acked.compareAndSet(false, true)) {
+                return null;
+            }
+
+            if (autoAck()) {
+                return null;
+            }
+            try {
+                if (ack) {
+                    channel.basicAck(envelope.getDeliveryTag(), false);
+                } else {
+                    //TODO requeue
+                    channel.basicNack(envelope.getDeliveryTag(), true, requeue);
+                }
+            } catch (IOException e) {
+                throw new RabbitFriendException(e);
+            }
+            return null;
+        });
+        ExceptionDSL.throwable(() -> FieldUtils.writeField(message, "ackFunc", ackFunc, true));
+
+        extractors.stream().forEach((extractor) -> extractor.extracte(message));
+
+        //Handle message before Interceptor
+
+        try {
+            handle(message);
+        } catch (Throwable throwable) {
+            if (exceptionHandler != null) {
+                exceptionHandler.accept(message, throwable);
+            }
+        } finally {
+            message.nack(false);
+        }
+    }
+
+    protected void processMessage(Message message) {
     }
 
     @Override
@@ -124,100 +198,6 @@ public abstract class BaseConsumer implements Consumer, Lifecycle, Consume, Cons
 
     }
 
-    protected boolean timeoutCheck(Message message) {
-        if (message instanceof TimeoutMessage) {
-            TimeoutMessage timeoutMessage = (TimeoutMessage) message;
-            timeoutMessage.getTimeout();
-            Date createDate = message.getBasicProperties().getTimestamp();
-            if (timeoutMessage.getTimeout() <= System.currentTimeMillis() - createDate.getTime()) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    @Override
-    public void handleDelivery(String consumerTag, Envelope envelope, AMQP.BasicProperties properties, byte[] body) throws IOException {
-        Message message = context.getDefaultMessageConvertor().loads(consumerTag, envelope, properties, body);
-        message.setBasicProperties(properties);
-        boolean isTimeout = timeoutCheck(message);
-        if (isTimeout) {
-            //TODO reply the error MessageReply
-            return;
-        }
-        AtomicBoolean acked = new AtomicBoolean(false);
-        BiFunction<Boolean, Boolean, Void> ackFunc = ((ack, requeue) -> {
-            if (!acked.compareAndSet(false, true)) {
-                return null;
-            }
-
-            if (autoAck()) {
-                return null;
-            }
-            try {
-                if (ack) {
-                    channel.basicAck(envelope.getDeliveryTag(), false);
-                } else {
-                    //TODO requeue
-                    channel.basicNack(envelope.getDeliveryTag(), true, requeue);
-                }
-            } catch (IOException e) {
-                throw new RabbitFriendException(e);
-            }
-            return null;
-        });
-        ExceptionDSL.throwable(() -> FieldUtils.writeField(message, "ackFunc", ackFunc, true));
-
-        if (message instanceof NeedReplyMessage) {
-            String exchangeName = properties.getHeaders().get(Producer.HEADER_EXCHANGE_NAME).toString();
-
-
-            Function<MessageReply, Void> replyFunc = ((reply) -> {
-                reply((NeedReplyMessage) message, reply, new BaseExchange(exchangeName, ExchangeType.topic));
-                return null;
-            });
-            ExceptionDSL.throwable(() -> FieldUtils.writeField(message, "replyFunc", replyFunc, true));
-        }
-
-        //Handle message before Interceptor
-        handle(message);
-        message.ack();
-    }
-
-    public void reply(NeedReplyMessage message, MessageReply reply, BaseExchange exchange) {
-        reply.setRequestMessage(message);
-        evalateBasicProperties(reply);
-        delegate.safeSend(reply, exchange);
-    }
-
-    private void evalateBasicProperties(MessageReply reply) {
-        NeedReplyMessage message = reply.getRequestMessage();
-        AMQP.BasicProperties properties = message.getBasicProperties();
-        String routingKey = properties.getReplyTo();
-        if (routingKey == null) {
-            routingKey = message.getReplyTo();
-        }
-        if (routingKey == null) {
-            throw new RabbitFriendException("routing key can not be null");
-        }
-        reply.setRoutingkey(routingKey);
-        String replyId = reply.getId();
-        if (replyId == null) {
-            replyId = uuidGenerate.getUuid();
-        }
-        reply.setId(replyId);
-
-        AMQP.BasicProperties.Builder builder = new AMQP.BasicProperties.Builder();
-        builder.messageId(replyId)
-                .correlationId(message.getId())
-                .deliveryMode(message.isPersistent() == true ? 2 : 1)
-                .priority(message.getPriority())
-                .timestamp(Calendar.getInstance().getTime())
-                .replyTo(properties.getReplyTo())
-                .headers(message.getHeaders());
-        reply.setBasicProperties(builder.build());
-    }
-
 
     public BaseQueue getConsumedQueue() {
         return new BaseQueue(getQueueName());
@@ -241,8 +221,17 @@ public abstract class BaseConsumer implements Consumer, Lifecycle, Consume, Cons
         return null;
     }
 
-    @Override
-    public Channel getChannel() {
-        return channel;
+    public java.util.function.BiConsumer<Message, Throwable> getExceptionHandler() {
+        return exceptionHandler;
     }
+
+    public BaseConsumer setExceptionHandler(java.util.function.BiConsumer<Message, Throwable> exceptionHandler) {
+        this.exceptionHandler = exceptionHandler;
+        return this;
+    }
+
+    public void addMessageConsumerExtractor(MessageConsumerExtractor extractor) {
+        extractors.add(extractor);
+    }
+
 }

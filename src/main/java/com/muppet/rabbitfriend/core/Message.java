@@ -16,7 +16,7 @@ import java.util.function.Supplier;
  *
  * @description
  */
-public abstract class Message implements HeadersConfigurable<Object> {
+public abstract class Message implements HeadersConfigurable<Object>, MessageInterface {
 
 
     protected String id;
@@ -24,7 +24,7 @@ public abstract class Message implements HeadersConfigurable<Object> {
     protected String routingkey;
 
     @GsonTransient
-    protected transient BasicProperties basicProperties;
+    protected transient AMQP.BasicProperties basicProperties;
 
     @GsonTransient
     protected transient boolean persistent = true;
@@ -56,11 +56,11 @@ public abstract class Message implements HeadersConfigurable<Object> {
         return this;
     }
 
-    public BasicProperties getBasicProperties() {
+    public AMQP.BasicProperties getBasicProperties() {
         return basicProperties;
     }
 
-    public Message setBasicProperties(BasicProperties basicProperties) {
+    public Message setBasicProperties(AMQP.BasicProperties basicProperties) {
         this.basicProperties = basicProperties;
         return this;
     }
@@ -109,11 +109,34 @@ public abstract class Message implements HeadersConfigurable<Object> {
         ackFunc.apply(ack, requeue);
     }
 
+    /**
+     * 确认该消息.
+     * 目前所有的ack都会被默认调用，已防止代码bug,漏掉ack
+     */
     public void ack() {
         ack(true, false);
     }
 
+    /**
+     * nack 该消息，一个消息只能被ack，或nack方法调用一次，其后调用均被忽略
+     *
+     * @param requeue 是否重新入队列，当选择入队列时需要慎重，可能会出现消费->nack->入队列->再消费的死循环.
+     */
     public void nack(Boolean requeue) {
         ack(false, requeue);
+    }
+
+    public void nack() {
+        ack(false, false);
+    }
+
+    private transient Runnable retryFunction;
+
+    @Override
+    public void retry() {
+        if (retryFunction == null) {
+            throw new RabbitFriendException("unsupported operation, please implements RetriableMessage");
+        }
+        retryFunction.run();
     }
 }

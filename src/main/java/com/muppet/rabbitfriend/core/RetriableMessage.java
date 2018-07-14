@@ -9,24 +9,20 @@ package com.muppet.rabbitfriend.core;
 /**
  * 可重试消息除了添加可重试次数，也需要添加超时时间
  */
-public interface RetriableMessage extends TimeoutMessage {
+public interface RetriableMessage extends TimeoutMessage, MessageInterface, HeadersConfigurable<Object> {
 
-//    private Integer maxRetryTimes;
-//
-//    /**
-//     * 当前是第几次梳理该请求
-//     */
-//    private Integer currentRetryTimes;
-//
-//    private Integer retryInterval;
+    public static final String RETRY_TIMES_KEY = DEFAULT_PREFIX + "curr.retry.times";
+
+    public static final String MAX_RETRY_TIMES = DEFAULT_PREFIX + "max.retry.times";
+
+    public static final String RETRY_INTERVAL_TIME = DEFAULT_PREFIX + "retry.interval.time";
 
 
     public Integer getMaxRetryTimes();
 
-
-    public Integer getCurrentRetryTimes();
-
+    default Integer getCurrentRetryTimes() {
+        return currentRetryTimes;
+    }
 
     public Integer getRetryInterval();
-
 }
