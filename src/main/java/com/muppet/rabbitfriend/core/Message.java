@@ -16,7 +16,7 @@ import java.util.function.Supplier;
  *
  * @description
  */
-public abstract class Message implements HeadersConfigurable<Object>, MessageInterface {
+public class Message implements HeadersConfigurable<Object>, MessageInterface {
 
 
     protected String id;
@@ -106,6 +106,9 @@ public abstract class Message implements HeadersConfigurable<Object>, MessageInt
 
 
     private void ack(Boolean ack, Boolean requeue) {
+        if (ackFunc == null) {
+            return;
+        }
         ackFunc.apply(ack, requeue);
     }
 

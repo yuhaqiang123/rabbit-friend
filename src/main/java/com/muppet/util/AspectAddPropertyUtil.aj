@@ -1,5 +1,6 @@
 package com.muppet.util;
 
+import com.muppet.rabbitfriend.core.Message;
 import com.muppet.rabbitfriend.core.MessageInterface;
 import com.muppet.rabbitfriend.core.RetriableMessage;
 import com.muppet.rabbitfriend.core.TimeoutMessage;
@@ -20,7 +21,7 @@ public aspect AspectAddPropertyUtil {
 
     public AMQP.BasicProperties MessageInterface.properties;
 
-    public static void addGetBasicPropertiesAspect(MessageInterface message, AMQP.BasicProperties properties) {
+    public static void addGetBasicPropertiesAspect(Message message, AMQP.BasicProperties properties) {
         message.properties = properties;
     }
 

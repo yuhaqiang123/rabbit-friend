@@ -19,17 +19,12 @@ public abstract class ConsumerCompositor extends BaseConsumer implements Consume
         super(context);
     }
 
-    @Override
-    public BaseQueue getConsumedQueue() {
-        return null;
-    }
-
 
     @Override
     public void start() {
         RpcConsumer rpcConsumer = new RpcConsumer(context) {
             @Override
-            protected String getQueueName() {
+            public String getQueueName() {
                 return ConsumerCompositor.this.getQueueName();
             }
 
@@ -41,7 +36,7 @@ public abstract class ConsumerCompositor extends BaseConsumer implements Consume
 
         RetryMessageConsumer retryMessageConsumer = new RetryMessageConsumer(context) {
             @Override
-            protected String getQueueName() {
+            public String getQueueName() {
                 return ConsumerCompositor.this.getQueueName();
             }
 

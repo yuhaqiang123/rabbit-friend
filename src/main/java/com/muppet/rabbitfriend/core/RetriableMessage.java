@@ -11,13 +11,6 @@ package com.muppet.rabbitfriend.core;
  */
 public interface RetriableMessage extends TimeoutMessage, MessageInterface, HeadersConfigurable<Object> {
 
-    public static final String RETRY_TIMES_KEY = DEFAULT_PREFIX + "curr.retry.times";
-
-    public static final String MAX_RETRY_TIMES = DEFAULT_PREFIX + "max.retry.times";
-
-    public static final String RETRY_INTERVAL_TIME = DEFAULT_PREFIX + "retry.interval.time";
-
-
     public Integer getMaxRetryTimes();
 
     default Integer getCurrentRetryTimes() {

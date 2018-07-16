@@ -72,18 +72,18 @@ public class RetryMessageProducer extends BaseProducer implements MessageProduce
         if (headers == null) {
             headers = new java.util.HashMap<>();
         }
-        headers.put(message.TIMEOUT_KEY, message.getTimeout().toString());
+        headers.put(Constants.HEADER_TIMEOUT_KEY, message.getTimeout().toString());
         headers.put(Constants.RETRY_EXCHANGE_NAME, getDeadExchange().getName());
         headers.put(Constants.HEADER_EXCHANGE_NAME, getExchange().getName());
-        headers.put(message.RETRY_TIMES_KEY, "0");
-        headers.put(message.MAX_RETRY_TIMES, message.getMaxRetryTimes().toString());
+        headers.put(Constants.HEADER_RETRY_TIMES_KEY, "0");
+        headers.put(Constants.HEADER_MAX_RETRY_TIMES, message.getMaxRetryTimes().toString());
 
-        headers.put(message.RETRY_INTERVAL_TIME, message.getRetryInterval().toString());
+        headers.put(Constants.HEADER_RETRY_INTERVAL_TIME, message.getRetryInterval().toString());
 
         properties.setExpiration((message.getRetryInterval().toString()));
         properties.setHeaders(headers);
 
-        AspectAddPropertyUtil.addGetBasicPropertiesAspect(message, properties);
+        AspectAddPropertyUtil.addGetBasicPropertiesAspect(message.cast(), properties);
         AspectAddPropertyUtil.addGetTimeoutAspect(message, message.getTimeout());
     }
 

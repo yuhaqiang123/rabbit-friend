@@ -4,7 +4,7 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>muppet</groupId>
+    <groupId>com.muppet</groupId>
     <artifactId>rabbit-friend</artifactId>
     <version>1.0</version>
     <properties>
@@ -266,20 +266,18 @@
                     <source>1.8</source>
                     <target>1.8</target>
                     <complianceLevel>1.8</complianceLevel>
-                    <!-- <encoding>UTF-8</encoding> -->
+                    <encoding>UTF-8</encoding>
                     <verbose>false</verbose>
                     <Xlint>warning</Xlint>
                     <outxml>true</outxml>
+                    <Xlint>adviceDidNotMatch</Xlint>
                     <aspectLibraries>
-                        <!-- 此处定义外部的aspect包，例如spring的事务aspect包 。这里引用的包必须在依赖中声明 -->
-                        <!--
-                          <aspectLibrary>
-                             <groupId>org.springframework</groupId>
-                             <artifactId>spring-aspects</artifactId>
-                         </aspectLibrary>
-                        -->
+                        <!--<aspectLibrary>
+                            <groupId>org.springframework</groupId>
+                            <artifactId>spring-aspects</artifactId>
+                        </aspectLibrary>-->
                         <aspectLibrary>
-                            <groupId>muppet</groupId>
+                            <groupId>com.muppet</groupId>
                             <artifaceId>rabbit-friend</artifaceId>
                         </aspectLibrary>
                     </aspectLibraries>
@@ -287,28 +285,25 @@
                 <executions>
                     <execution>
                         <goals>
-                            <goal>compile</goal>       <!-- use this goal to weave all your main classes -->
-                            <goal>test-compile</goal>  <!-- use this goal to weave all your test classes -->
+                            <goal>compile</goal>
+                            <goal>test-compile</goal>
                         </goals>
                     </execution>
                 </executions>
             </plugin>
 
-            <!-- Maven 编译插件 -->
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-compiler-plugin</artifactId>
-                <version>3.6.1</version>
-                <configuration>
-                    <compilerVersion>1.8</compilerVersion>
-                    <fork>true</fork>
-                    <source>1.8</source>
-                    <target>1.8</target>
-                    <encoding>UTF-8</encoding>
-                </configuration>
-            </plugin>
-            <!-- AspectJ 编译插件 -->
-
+            <!-- <plugin>
+                 <groupId>org.apache.maven.plugins</groupId>
+                 <artifactId>maven-compiler-plugin</artifactId>
+                 <version>3.6.1</version>
+                 <configuration>
+                     <compilerVersion>1.8</compilerVersion>
+                     <fork>true</fork>
+                     <source>1.8</source>
+                     <target>1.8</target>
+                     <encoding>UTF-8</encoding>
+                 </configuration>
+             </plugin>-->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-eclipse-plugin</artifactId>
@@ -318,6 +313,8 @@
                 </configuration>
             </plugin>
         </plugins>
+
+
     </build>
 
 </project>

@@ -13,8 +13,6 @@ import com.muppet.rabbitfriend.core.RabbitConfiguration;
 import com.muppet.rabbitfriend.core.RabbitContext;
 import com.muppet.rabbitfriend.core.RabbitFriendUtilExtension;
 import com.muppet.rabbitfriend.core.RetriableMessage;
-import com.muppet.rabbitfriend.core.RetryMessageConsumer;
-import com.muppet.rabbitfriend.core.RetryMessageProducer;
 import com.muppet.rabbitfriend.core.RoutingKey;
 import com.muppet.rabbitfriend.core.TimeoutMessage;
 import com.muppet.util.GsonUtil;
@@ -51,30 +49,59 @@ public class TestRetryMessageTemplate {
          */
         RabbitContext context = configuration.getRabbitContext();
         context.start();
-        CountDownLatch latch = new CountDownLatch(1);
 
-        ProducerCompositor producer = new ProducerCompositor(context);
-        BaseExchange exchange = new BaseExchange("b", ExchangeType.topic);
-        producer.setExchange(exchange);
-        exchange = context.declareExchangeIfabsent("b", ExchangeType.topic);
-        BaseQueue queue = context.declareQueueIfAbsent("vv");
-        context.bind(exchange, queue, new RoutingKey("yy"));
-        producer.start();
+        BaseExchange exchange = new BaseExchange("BaseExchange", ExchangeType.topic);
+        context.declareExchange(exchange);
 
-        ARetrableMessage message = new ARetrableMessage();
-        message.setRoutingkey("yy");
-        producer.send(message, new AsyncMessageReplyCallback(null) {
-            @Override
-            public void run(MessageReply r) {
-                logger.info(GsonUtil.toDefaultJson(r));
-                latch.countDown();
+        BaseQueue queue = context.declareQueueIfAbsent("TestQueue");
+        context.bind(exchange, queue, new RoutingKey("TestQueue"));
+
+        CountDownLatch latch = new CountDownLatch(2);
+
+
+        new Thread(() -> {
+            ProducerCompositor producer = new ProducerCompositor(context);
+            producer.setExchange(exchange);
+            producer.start();
+            ARetrableMessage message = new ARetrableMessage("你好");
+            message.setRoutingkey("TestQueue");
+            producer.send(message, new AsyncMessageReplyCallback(null) {
+                @Override
+                public void run(MessageReply r) {
+                    latch.countDown();
+                }
+            });
+            try {
+                latch.await();
+            } catch (Exception e) {
             }
-        });
+        }).start();
+
+        new Thread(() -> {
+            ProducerCompositor producer = new ProducerCompositor(context);
+            producer.setExchange(exchange);
+            producer.start();
+            ARetrableMessage message = new ARetrableMessage("How are you");
+            message.setRoutingkey("TestQueue");
+            producer.send(message, new AsyncMessageReplyCallback(null) {
+                @Override
+                public void run(MessageReply r) {
+                    logger.info(r.getError().getErrorInfo());
+                    latch.countDown();
+                }
+            });
+            try {
+                latch.await();
+            } catch (Exception e) {
+            }
+
+        }).start();
         try {
             latch.await();
         } catch (Exception e) {
-
         }
+
+
     }
 
     @Test
@@ -86,7 +113,7 @@ public class TestRetryMessageTemplate {
         configuration.setPassword("muppet");
         configuration.setIps(new String[]{"127.0.0.1"});
         configuration.setChannelPoolSize(20);
-        configuration.setDefaultReplyToQueue("tt");
+        configuration.setDefaultReplyToQueue("TestQueueReply");
 
         /***
          * 通过context 注册Producer,Consumer
@@ -97,8 +124,8 @@ public class TestRetryMessageTemplate {
 
         ConsumerCompositor consumerCompositor = new ConsumerCompositor(context) {
             @Override
-            protected String getQueueName() {
-                return "vv";
+            public String getQueueName() {
+                return "TestQueue";
             }
 
             @Override
@@ -130,6 +157,11 @@ public class TestRetryMessageTemplate {
 
 class ARetrableMessage extends NeedReplyMessage implements RetriableMessage {
 
+
+    public ARetrableMessage(String name) {
+        this.name = name;
+    }
+
     //@Override
     public TimeoutMessage setTimeout(Long timeout) {
         return this;
@@ -139,7 +171,7 @@ class ARetrableMessage extends NeedReplyMessage implements RetriableMessage {
 
     @Override
     public Long getTimeout() {
-        return 100000L;
+        return 1000L;
     }
 
     @Override
@@ -149,7 +181,7 @@ class ARetrableMessage extends NeedReplyMessage implements RetriableMessage {
 
     @Override
     public Integer getRetryInterval() {
-        return 10000;
+        return 1000;
     }
 }
 

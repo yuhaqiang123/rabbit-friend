@@ -11,7 +11,7 @@ public interface Consume extends Lifecycle, HeadersConfigurable<String> {
 
     //public String getName();
 
-    public BaseQueue getConsumedQueue();
+    public String getQueueName();
 
     public interface AutoAckEnable {
         default boolean autoAck() {

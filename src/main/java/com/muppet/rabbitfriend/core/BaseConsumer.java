@@ -1,46 +1,28 @@
 package com.muppet.rabbitfriend.core;
 
-import com.google.gson.ExclusionStrategy;
-import com.google.gson.FieldAttributes;
 import com.google.gson.Gson;
-import com.google.gson.JsonDeserializationContext;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParseException;
-import com.google.gson.JsonSerializationContext;
 import com.muppet.util.AspectAddPropertyUtil;
+import com.muppet.util.DateUtils;
 import com.muppet.util.ExceptionDSL;
-import com.muppet.util.GsonTransient;
-import com.muppet.util.GsonTypeCoder;
 import com.muppet.util.GsonUtil;
 import com.rabbitmq.client.AMQP;
-import com.rabbitmq.client.BasicProperties;
 import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.Consumer;
 import com.rabbitmq.client.Envelope;
 import com.rabbitmq.client.ShutdownSignalException;
-import okio.Timeout;
 import org.apache.commons.lang.reflect.FieldUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.reflections.ReflectionUtils;
-import org.reflections.Reflections;
 
-import java.beans.PropertyDescriptor;
 import java.io.IOException;
-import java.lang.reflect.Type;
 import java.util.ArrayList;
-import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiFunction;
-import java.util.function.Function;
-import java.util.function.Supplier;
 
 /**
  * Created by yuhaiqiang on 2018/7/4.
@@ -95,6 +77,7 @@ public abstract class BaseConsumer implements Consumer, Lifecycle, Consume, Cons
     public void start() {
         delegate = context.getDelegateFactory().acquireDelegate();
         uuidGenerate = context.getConfiguration().getUuidGenerator();
+        context.declareQueue(new BaseQueue(getQueueName()));
     }
 
 
@@ -103,7 +86,7 @@ public abstract class BaseConsumer implements Consumer, Lifecycle, Consume, Cons
             TimeoutMessage timeoutMessage = (TimeoutMessage) message;
             timeoutMessage.getTimeout();
             Date createDate = message.getBasicProperties().getTimestamp();
-            Long timeout = Long.valueOf(message.getBasicProperties().getHeaders().get(TimeoutMessage.TIMEOUT_KEY).toString());
+            Long timeout = Long.valueOf(message.getBasicProperties().getHeaders().get(Constants.HEADER_TIMEOUT_KEY).toString());
             AspectAddPropertyUtil.addGetTimeoutAspect(timeoutMessage, timeout);
             if (timeoutMessage.getTimeout() <= System.currentTimeMillis() - createDate.getTime()) {
                 return true;
@@ -118,10 +101,14 @@ public abstract class BaseConsumer implements Consumer, Lifecycle, Consume, Cons
         message.setBasicProperties(properties);
 
         boolean isTimeout = checkMessage(message);
-        //if (isTimeout) {
-        //TODO reply the error MessageReply
-        //z  return;
-        //}
+        if (isTimeout) {
+            //TODO reply the error MessageReply
+            logger.error("drop the message[{}], due to it's timeout[createTime:{}, timeout[{}] millseconds"
+                    , GsonUtil.toDefaultJson(message)
+                    , DateUtils.format(message.getBasicProperties().getTimestamp())
+                    , message.getHeaders().get(Constants.HEADER_TIMEOUT_KEY));
+            return;
+        }
         AtomicBoolean acked = new AtomicBoolean(false);
         BiFunction<Boolean, Boolean, Void> ackFunc = ((ack, requeue) -> {
             if (!acked.compareAndSet(false, true)) {
@@ -199,11 +186,7 @@ public abstract class BaseConsumer implements Consumer, Lifecycle, Consume, Cons
     }
 
 
-    public BaseQueue getConsumedQueue() {
-        return new BaseQueue(getQueueName());
-    }
-
-    protected abstract String getQueueName();
+    public abstract String getQueueName();
 
 
     @Override

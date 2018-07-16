@@ -63,7 +63,7 @@ public class RpcProducer extends BaseProducer implements MessageProducerExtracto
         logger.info("register cosumer");
         context.registerConsumer(new BaseConsumer(context) {
             @Override
-            protected String getQueueName() {
+            public String getQueueName() {
                 return replyTo;
             }
 
@@ -154,7 +154,7 @@ public class RpcProducer extends BaseProducer implements MessageProducerExtracto
         }
 
         message.setHeaderEntry(Constants.HEADER_EXCHANGE_NAME, getExchange().getName())
-                .put(message.TIMEOUT_KEY, message.getTimeout().toString());
+                .put(Constants.HEADER_TIMEOUT_KEY, message.getTimeout().toString());
         if (properties == null) {
             AMQP.BasicProperties.Builder builder = new AMQP.BasicProperties.Builder();
             builder.messageId(messageId)
@@ -262,7 +262,6 @@ public class RpcProducer extends BaseProducer implements MessageProducerExtracto
             };
 
             envelopes.put(correlationId, envelope);
-
         }
         delegate.safeSend(message, getExchange());
 

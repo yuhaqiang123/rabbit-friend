@@ -18,7 +18,7 @@ public interface TimeoutMessage {
 
     //public TimeoutMessage setTimeout(Long timeout);
 
-    public final String TIMEOUT_KEY = HeadersConfigurable.DEFAULT_PREFIX + "timeout";
+
 
     public Long getTimeout();
 }

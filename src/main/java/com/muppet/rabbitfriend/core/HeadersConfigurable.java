@@ -11,7 +11,6 @@ import java.util.Set;
  */
 public interface HeadersConfigurable<T> {
 
-    public final String DEFAULT_PREFIX = HeadersConfigurable.class.getName() + ".";
 
     public Map<String, T> setHeaderEntry(String key, T value);
 
