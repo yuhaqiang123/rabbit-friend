@@ -1,15 +1,18 @@
 package com.muppet.rabbitfriend.core;
 
 import com.muppet.util.DateUtils;
+import com.muppet.util.ExceptionDSL;
 import com.muppet.util.GsonUtil;
 import com.rabbitmq.client.AMQP;
 import com.rabbitmq.client.AMQP.BasicProperties;
+import org.apache.commons.lang.reflect.FieldUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Timer;
 import java.util.TimerTask;
@@ -60,8 +63,15 @@ public class RpcProducer extends BaseProducer implements MessageProducerExtracto
 
         context.bind(exchange, replyToQueue, new RoutingKey(replyTo));
 
-        logger.info("register cosumer");
         context.registerConsumer(new BaseConsumer(context) {
+
+            @Override
+            public void start() {
+                super.start();
+                initializeDelegate();
+                //this.addMessageConsumerExtractor(new RetryMessageConsumerExtractor(delegate));
+            }
+
             @Override
             public String getQueueName() {
                 return replyTo;
@@ -80,6 +90,7 @@ public class RpcProducer extends BaseProducer implements MessageProducerExtracto
                     throw throwable;
                 }
             }
+
 
             @Override
             public void handle(Message message) {
@@ -129,12 +140,6 @@ public class RpcProducer extends BaseProducer implements MessageProducerExtracto
      */
     protected void evalateBasicProperties(NeedReplyMessage message) {
         BasicProperties properties = message.getBasicProperties();
-        String expirationTime = null;
-        if (message instanceof RetriableMessage) {
-            expirationTime = ((RetriableMessage) message).getRetryInterval().toString();
-        } else if (message instanceof DefferedMessage) {
-            expirationTime = ((DefferedMessage) message).getDefferedTime().toString();
-        }
         String messageId = message.getId();
         if (messageId == null) {
             messageId = uuidGenerate.getUuid();
@@ -157,17 +162,19 @@ public class RpcProducer extends BaseProducer implements MessageProducerExtracto
                 .put(Constants.HEADER_TIMEOUT_KEY, message.getTimeout().toString());
         if (properties == null) {
             AMQP.BasicProperties.Builder builder = new AMQP.BasicProperties.Builder();
-            builder.messageId(messageId)
-                    .correlationId(messageId)
-                    .deliveryMode(message.isPersistent() == true ? 2 : 1)
-                    .priority(message.getPriority())
-                    .expiration(expirationTime)
-                    .timestamp(Calendar.getInstance().getTime())
-                    .replyTo(replyTo)
-                    .headers(message.getHeaders());
             properties = builder.build();
         }
-        message.setBasicProperties(properties);
+        properties.setMessageId(messageId);
+        properties.setCorrelationId(messageId);
+        properties.setDeliveryMode(message.isPersistent() == true ? 2 : 1);
+        properties.setPriority(message.getPriority());
+        properties.setTimestamp(Calendar.getInstance().getTime());
+        properties.setReplyTo(replyTo);
+        AMQP.BasicProperties finalProperties = properties;
+        ExceptionDSL.throwable(() -> FieldUtils.writeField(finalProperties, "headers", message.getHeaders(), true));
+
+        message.setBasicProperties(finalProperties);
+
 
         postEvalateBasicProperties(message, properties);
     }
@@ -180,11 +187,11 @@ public class RpcProducer extends BaseProducer implements MessageProducerExtracto
     }
 
     public void send(NeedReplyMessage message) {
-        send(message, null);
+        send(message, null, null);
     }
 
 
-    public void send(NeedReplyMessage message, AsyncMessageReplyCallback callback) {
+    public void send(NeedReplyMessage message, AsyncMessageReplyCallback callback, BaseExchange exchange) {
         //evalateBasicProperties(message);
         String correlationId = message.getId();
         Envelope envelope = null;
@@ -263,7 +270,7 @@ public class RpcProducer extends BaseProducer implements MessageProducerExtracto
 
             envelopes.put(correlationId, envelope);
         }
-        delegate.safeSend(message, getExchange());
+        delegate.safeSend(message, exchange == null ? getExchange() : exchange);
 
         /**
          * 确保消息发送完成之后再开启timer
@@ -300,7 +307,7 @@ public class RpcProducer extends BaseProducer implements MessageProducerExtracto
                         callback.done(replies);
                     }
                 }
-            });
+            }, null);
         }
     }
 
@@ -315,7 +322,7 @@ public class RpcProducer extends BaseProducer implements MessageProducerExtracto
                     lock.notify();
                 }
             }
-        });
+        }, null);
         synchronized (lock) {
             try {
                 //Mesage会有代答机制，所以此处可以不用有限等待，但是避免异常情况，设置等待时间

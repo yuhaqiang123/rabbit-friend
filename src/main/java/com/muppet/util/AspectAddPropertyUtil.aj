@@ -37,20 +37,16 @@ public aspect AspectAddPropertyUtil {
     public static void addGetTimeoutAspect(TimeoutMessage message, Long timeout) {
         message.timeoutValue = timeout;
     }
-/*
-    public Runnable RetriableMessage.retryFunction;*/
 
-/*
-    public static void addRetryAspect(RetriableMessage message, Runnable retryFunction) {
+    public transient Consumer<Integer> RetriableMessage.retryFunction;
+
+    public static void addRetryAspect(RetriableMessage message, Consumer<Integer> retryFunction) {
         message.retryFunction = retryFunction;
     }
 
-    void around(com.muppet.rabbitfriend.core.RetriableMessage message):target(message) && execution(void com.muppet.rabbitfriend.core.RetriableMessage+.retry(..)){
+    /*void around(com.muppet.rabbitfriend.core.RetriableMessage message):target(message) && execution(void com.muppet.rabbitfriend.core.RetriableMessage+.retry(..)){
         message.retryFunction.run();
-    }
-*/
-
-
+    }*/
 
     public Integer RetriableMessage.maxRetryTimes;
 

@@ -22,6 +22,7 @@ public abstract class ConsumerCompositor extends BaseConsumer implements Consume
 
     @Override
     public void start() {
+        super.start();
         RpcConsumer rpcConsumer = new RpcConsumer(context) {
             @Override
             public String getQueueName() {

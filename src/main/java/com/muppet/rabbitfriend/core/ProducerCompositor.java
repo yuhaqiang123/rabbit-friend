@@ -8,7 +8,7 @@ import java.util.List;
  *
  * @description
  */
-public class ProducerCompositor extends BaseProducer implements Producer, MessageConsumerExtractor {
+public class ProducerCompositor extends BaseProducer implements Producer, MessageProducerExtractor {
 
 
     public ProducerCompositor(RabbitContext context) {
@@ -40,8 +40,11 @@ public class ProducerCompositor extends BaseProducer implements Producer, Messag
         producers.add(rpcProducer);
         producers.add(retryMessageProducer);
 
+        DefferedMessageProducerExtractor defferedMessageProducerExtractor = new DefferedMessageProducerExtractor(context, getExchange());
+
         extractors.add(rpcProducer);
         extractors.add(retryMessageProducer);
+        extractors.add(defferedMessageProducerExtractor);
     }
 
     @Override
@@ -49,14 +52,26 @@ public class ProducerCompositor extends BaseProducer implements Producer, Messag
         extractors.stream().forEach((extractor) -> extractor.extracte(message));
     }
 
+
+    @Override
+    public BaseExchange getSendExchange(Message message) {
+        for (MessageProducerExtractor extractor : extractors) {
+            BaseExchange exchange = extractor.getSendExchange(message);
+            if (exchange != null) {
+                return exchange;
+            }
+        }
+        return null;
+    }
+
     public void send(NeedReplyMessage message, AsyncMessageReplyCallback callback) {
         extracte(message);
-        rpcProducer.send(message, callback);
+        rpcProducer.send(message, callback, getSendExchange(message));
     }
 
     public void send(RetriableMessage message) {
         extracte(message.cast());
-        retryMessageProducer.send(message);
+        retryMessageProducer.send(message, getSendExchange(message.cast()));
     }
 
     @Override

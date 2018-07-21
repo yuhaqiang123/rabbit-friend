@@ -19,6 +19,8 @@ public abstract class RpcConsumer extends BaseConsumer implements MessageConsume
 
     private Logger logger = LogManager.getLogger(this.getClass());
 
+    private RpcMessageConsumerExtractor extractor;
+
     public RpcConsumer(RabbitContext context) {
         super(context);
     }
@@ -27,29 +29,38 @@ public abstract class RpcConsumer extends BaseConsumer implements MessageConsume
     @Override
     public void start() {
         super.start();
+        initializeDelegate();
+        extractor = new RpcMessageConsumerExtractor(this);
         this.addMessageConsumerExtractor(this);
     }
-
-
-    protected void processMessage(Message message) {
-        AMQP.BasicProperties properties = message.getBasicProperties();
-        if (message instanceof NeedReplyMessage) {
-            String exchangeName = properties.getHeaders().get(Constants.HEADER_EXCHANGE_NAME).toString();
-
-
-            Function<MessageReply, Void> replyFunc = ((reply) -> {
-                reply((NeedReplyMessage) message, reply, new BaseExchange(exchangeName));
-                return null;
-            });
-            ExceptionDSL.throwable(() -> FieldUtils.writeField(message, "replyFunc", replyFunc, true));
-        }
-    }
-
 
     public void reply(NeedReplyMessage message, MessageReply reply, BaseExchange exchange) {
         reply.setRequestMessage(message);
         evalateBasicProperties(reply);
         delegate.safeSend(reply, exchange);
+    }
+
+    public class RpcMessageConsumerExtractor implements MessageConsumerExtractor {
+
+
+        private RpcConsumer consumer;
+
+        public RpcMessageConsumerExtractor(RpcConsumer consumer) {
+            this.consumer = consumer;
+        }
+
+        public void extracte(Message message) {
+            AMQP.BasicProperties properties = message.getBasicProperties();
+            if (message instanceof NeedReplyMessage) {
+                String exchangeName = properties.getHeaders().get(Constants.HEADER_EXCHANGE_NAME).toString();
+
+                Function<MessageReply, Void> replyFunc = ((reply) -> {
+                    this.consumer.reply((NeedReplyMessage) message, reply, new BaseExchange(exchangeName));
+                    return null;
+                });
+                ExceptionDSL.throwable(() -> FieldUtils.writeField(message, "replyFunc", replyFunc, true));
+            }
+        }
     }
 
     private void evalateBasicProperties(MessageReply reply) {
@@ -82,6 +93,6 @@ public abstract class RpcConsumer extends BaseConsumer implements MessageConsume
 
     @Override
     public void extracte(Message message) {
-        processMessage(message);
+        extractor.extracte(message);
     }
 }

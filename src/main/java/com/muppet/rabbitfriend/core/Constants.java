@@ -28,4 +28,9 @@ public class Constants {
 
     public static final String HEADER_RETRY_INTERVAL_TIME = HEADER_DEFAULT_PREFIX + "retry.interval.time";
 
+    public static final String HEADER_DEFFERED_EXCHANGE_NAME = HEADER_DEFAULT_PREFIX + "deffered.exchange.name";
+
+    public static final String HEADER_DEFFERED_MESSAGE_TIME = HEADER_DEFAULT_PREFIX + "deffered.message.time";
+
+
 }

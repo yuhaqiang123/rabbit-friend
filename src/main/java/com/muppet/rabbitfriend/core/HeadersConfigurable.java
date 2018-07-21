@@ -10,8 +10,6 @@ import java.util.Set;
  * @description
  */
 public interface HeadersConfigurable<T> {
-
-
     public Map<String, T> setHeaderEntry(String key, T value);
 
     public Set<String> getEnabledHeaderKeys();

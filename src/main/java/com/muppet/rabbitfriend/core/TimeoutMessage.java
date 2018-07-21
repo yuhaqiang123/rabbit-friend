@@ -12,13 +12,5 @@ import java.util.concurrent.TimeUnit;
  * @description
  */
 public interface TimeoutMessage {
-
-    //private Long timeout;
-
-
-    //public TimeoutMessage setTimeout(Long timeout);
-
-
-
     public Long getTimeout();
 }

@@ -7,4 +7,8 @@ package com.muppet.rabbitfriend.core;
  */
 public interface MessageProducerExtractor {
     public void extracte(Message message);
+
+    default BaseExchange getSendExchange(Message message) {
+        return null;
+    }
 }

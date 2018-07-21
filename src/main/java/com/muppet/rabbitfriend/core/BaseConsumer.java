@@ -72,12 +72,22 @@ public abstract class BaseConsumer implements Consumer, Lifecycle, Consume, Cons
 
     private Map<String, String> headers = new HashMap<>();
 
+    private AtomicBoolean started = new AtomicBoolean(false);
 
     @Override
     public void start() {
-        delegate = context.getDelegateFactory().acquireDelegate();
+        if (!started.compareAndSet(false, true)) {
+            return;
+        }
         uuidGenerate = context.getConfiguration().getUuidGenerator();
         context.declareQueue(new BaseQueue(getQueueName()));
+        if (getPreFetchSize() != null) {
+            delegate.basicQos(getPreFetchSize(), false);
+        }
+    }
+
+    protected void initializeDelegate() {
+        delegate = context.getDelegateFactory().acquireDelegate();
     }
 
 
@@ -101,12 +111,14 @@ public abstract class BaseConsumer implements Consumer, Lifecycle, Consume, Cons
         message.setBasicProperties(properties);
 
         boolean isTimeout = checkMessage(message);
+
         if (isTimeout) {
             //TODO reply the error MessageReply
             logger.error("drop the message[{}], due to it's timeout[createTime:{}, timeout[{}] millseconds"
                     , GsonUtil.toDefaultJson(message)
                     , DateUtils.format(message.getBasicProperties().getTimestamp())
-                    , message.getHeaders().get(Constants.HEADER_TIMEOUT_KEY));
+                    , message.getBasicProperties().getHeaders().get(Constants.HEADER_TIMEOUT_KEY));
+            channel.basicNack(envelope.getDeliveryTag(), false, false);
             return;
         }
         AtomicBoolean acked = new AtomicBoolean(false);
@@ -147,12 +159,9 @@ public abstract class BaseConsumer implements Consumer, Lifecycle, Consume, Cons
         }
     }
 
-    protected void processMessage(Message message) {
-    }
-
     @Override
     public void destroy() {
-
+        context.getDelegateFactory().releaseDelegate(delegate);
     }
 
     @Override
@@ -217,4 +226,18 @@ public abstract class BaseConsumer implements Consumer, Lifecycle, Consume, Cons
         extractors.add(extractor);
     }
 
+
+    @Override
+    public Integer getPreFetchSize() {
+        return null;
+    }
+
+    public RabbitmqDelegate getDelegate() {
+        return delegate;
+    }
+
+    public BaseConsumer setDelegate(RabbitmqDelegate delegate) {
+        this.delegate = delegate;
+        return this;
+    }
 }

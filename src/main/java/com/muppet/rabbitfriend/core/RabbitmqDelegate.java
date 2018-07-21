@@ -86,6 +86,17 @@ public class RabbitmqDelegate {
         });
     }
 
+    public void basicQos(Integer preFetchSize, Boolean perConsumer) {
+        channelExecute(channel -> {
+            try {
+                channel.basicQos(preFetchSize, perConsumer);
+                return null;
+            } catch (Exception e) {
+                throw new RabbitFriendException(e);
+            }
+        });
+    }
+
     public void declareQueueIfAbsent(BaseQueue queue) {
         //if (!queueExist(queue.getName())) {
         declareQueue(queue);

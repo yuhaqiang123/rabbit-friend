@@ -156,7 +156,7 @@ public class TestProducer {
                 logger.info("成功收到返回值, {},{},{}", r.getSuccess(), r.getError().getErrorInfo(), r.getError().getHeaders());
                 throw new NullPointerException();
             }
-        });
+        }, null);
 
         try {
             latch.await();

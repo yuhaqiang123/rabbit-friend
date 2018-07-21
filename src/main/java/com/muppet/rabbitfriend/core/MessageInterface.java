@@ -25,6 +25,4 @@ public interface MessageInterface {
     public void nack(Boolean requeue);
 
     public void nack();
-
-    public void retry();
 }

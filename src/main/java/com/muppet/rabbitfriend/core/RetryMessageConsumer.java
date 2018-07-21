@@ -7,6 +7,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import java.util.Map;
+import java.util.function.Consumer;
 
 /**
  * Created by yuhaiqiang on 2018/7/14.
@@ -17,6 +18,8 @@ public abstract class RetryMessageConsumer extends BaseConsumer implements Messa
 
     private String queueName;
 
+
+    private RetryMessageConsumerExtractor extractor;
 
     private Logger logger = LogManager.getLogger(this.getClass());
 
@@ -29,12 +32,33 @@ public abstract class RetryMessageConsumer extends BaseConsumer implements Messa
     @Override
     public void start() {
         super.start();
+        initializeDelegate();
+        extractor = new RetryMessageConsumerExtractor(delegate);
         this.addMessageConsumerExtractor(this);
     }
 
 
     @Override
-    protected void processMessage(Message message) {
+    public void extracte(Message message) {
+        extractor.extracte(message);
+    }
+}
+
+
+class RetryMessageConsumerExtractor implements MessageConsumerExtractor {
+
+
+    private RabbitmqDelegate delegate;
+
+    Logger logger = LogManager.getLogger(this.getClass());
+
+    public RetryMessageConsumerExtractor(RabbitmqDelegate delegate) {
+        this.delegate = delegate;
+    }
+
+
+    @Override
+    public void extracte(Message message) {
         if (!(message instanceof RetriableMessage)) {
             return;
         }
@@ -48,15 +72,15 @@ public abstract class RetryMessageConsumer extends BaseConsumer implements Messa
         AspectAddPropertyUtil.addGetRetryInterval(message.cast(), Integer.valueOf(headers.get(Constants.HEADER_RETRY_INTERVAL_TIME).toString()));
 
 
-        Runnable retryFunction = () -> {
+        Consumer<Integer> retryFunction = (delay) -> {
             headers.put(Constants.HEADER_RETRY_TIMES_KEY, String.valueOf(retryTimes + 1));
+            Integer finalDelay = delay;
+            if (delay == null) {
+                finalDelay = ((RetriableMessage) message).getRetryInterval();
+            }
+            message.getBasicProperties().setExpiration(String.valueOf(finalDelay));
             delegate.safeSend(message, new BaseExchange(exchangeName));
         };
         ExceptionDSL.throwable(() -> FieldUtils.writeField(message, "retryFunction", retryFunction, true), null, (e) -> logger.info(e));
-    }
-
-    @Override
-    public void extracte(Message message) {
-        processMessage(message);
     }
 }

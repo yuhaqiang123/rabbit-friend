@@ -7,10 +7,5 @@ package com.muppet.rabbitfriend.core;
  */
 public interface DefferedMessage {
 
-
-    //private Integer defferedTime;
-
-    public DefferedMessage setDefferedTime(Integer defferedTime);
-
     public Integer getDefferedTime();
 }

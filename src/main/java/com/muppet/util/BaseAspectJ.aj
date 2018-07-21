@@ -1,7 +1,6 @@
 package com.muppet.util;
 
 import com.muppet.rabbitfriend.core.AsyncSafeCallback;
-import com.muppet.rabbitfriend.core.Callback;
 import com.muppet.rabbitfriend.core.Message;
 import com.muppet.rabbitfriend.core.RabbitContext;
 import com.muppet.rabbitfriend.core.RabbitFriendException;
@@ -16,12 +15,6 @@ import java.util.function.Consumer;
  */
 public aspect BaseAspectJ {
     private Logger logger = LogManager.getLogger(this.getClass());
-
-
-    after (com.muppet.rabbitfriend.core.RpcConsumer consumer): target(consumer) && execution(com.muppet.rabbitfriend.core.RpcConsumer+.new(..)){
-        logger.info("ASPECTJ AOP");
-    }
-
 
     void around (com.muppet.rabbitfriend.core.RpcConsumer consumer): target(consumer) && execution(void com.muppet.rabbitfriend.core.RpcConsumer+.handle(..)){
         ExceptionDSL.throwable(() -> proceed(consumer), null, () -> {

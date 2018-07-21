@@ -4,14 +4,11 @@ import com.google.common.base.Charsets;
 import com.google.gson.Gson;
 import com.muppet.util.GsonUtil;
 import com.rabbitmq.client.AMQP;
-import com.rabbitmq.client.Address;
 import com.rabbitmq.client.Channel;
-import com.rabbitmq.client.Connection;
-import com.rabbitmq.client.ConnectionFactory;
 import com.rabbitmq.client.Envelope;
-import org.apache.commons.lang.StringUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.springframework.security.access.method.P;
 
 import java.io.IOException;
 import java.util.HashMap;
@@ -67,6 +64,11 @@ public class RabbitContext {
         return new RpcProducer(this).setExchange(new BaseExchange(exchangeName));
     }
 
+
+    public ProducerCompositor createProducer(BaseExchange exchange) {
+        return new ProducerCompositor(this).setExchange(exchange);
+    }
+
     private RabbitContext(RabbitConfiguration configuration) {
         this.configuration = configuration;
     }
@@ -105,12 +107,13 @@ public class RabbitContext {
     public BaseQueue declareQueueIfAbsent(String name) {
         BaseQueue queue = new BaseQueue();
         queue.setName(name);
-        defaultDelegate.declareQueueIfAbsent(queue);
+        declareQueue(queue);
         return queue;
     }
 
     public BaseQueue declareQueue(BaseQueue queue) {
         defaultDelegate.declareQueue(queue);
+        logger.debug("declare queue[{}]", queue.getName());
         return queue;
     }
 
@@ -126,6 +129,7 @@ public class RabbitContext {
                 //return null;
             }
         });
+        logger.debug("declare exchange[{}]", GsonUtil.toDefaultJson(exchange));
     }
 
     public <T> T channelExecute(Function<Channel, T> function) {
@@ -167,9 +171,23 @@ public class RabbitContext {
         return this;
     }
 
-    public void registerConsumer(BaseConsumer consume) {
+    public void registerConsumer(BaseConsumer consumer) {
+        registerConsumer(consumer, consumer.getDelegate() == null);
+    }
+
+    public void registerConsuimerCompositor(ConsumerCompositor consumerCompositor) {
+        registerConsumer(consumerCompositor);
+    }
+
+    public void registerConsumer(BaseConsumer consume, Boolean isDefaultDelegate) {
         consume.start();
-        defaultDelegate.channelExecute(channel -> {
+        RabbitmqDelegate delegate = null;
+        if (isDefaultDelegate) {
+            delegate = defaultDelegate;
+        } else {
+            delegate = consume.getDelegate();
+        }
+        delegate.channelExecute(channel -> {
             try {
                 //consumerTag 看看能不能用
                 consume.setChannel(channel);
@@ -179,6 +197,7 @@ public class RabbitContext {
             }
             return null;
         });
+        logger.debug("register consumer on queue:{},  with args:{}", consume.getQueueName(), consume.getHeaders());
     }
 
     public void bind(BaseExchange exchange, BaseQueue queue, RoutingKey routingKey) {

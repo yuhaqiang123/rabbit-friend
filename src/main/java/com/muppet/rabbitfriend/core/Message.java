@@ -132,14 +132,4 @@ public class Message implements HeadersConfigurable<Object>, MessageInterface {
     public void nack() {
         ack(false, false);
     }
-
-    private transient Runnable retryFunction;
-
-    @Override
-    public void retry() {
-        if (retryFunction == null) {
-            throw new RabbitFriendException("unsupported operation, please implements RetriableMessage");
-        }
-        retryFunction.run();
-    }
 }
