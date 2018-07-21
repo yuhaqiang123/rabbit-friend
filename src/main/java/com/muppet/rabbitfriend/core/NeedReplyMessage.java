@@ -34,7 +34,7 @@ public class NeedReplyMessage extends Message implements TimeoutMessage {
         return this;
     }
 
-    @Override
+    //@Override
     public TimeoutMessage setTimeout(Long timeout) {
         this.timeout = timeout;
         return this;

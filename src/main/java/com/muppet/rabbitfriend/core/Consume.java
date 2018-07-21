@@ -11,7 +11,15 @@ public interface Consume extends Lifecycle, HeadersConfigurable<String> {
 
     //public String getName();
 
-    public BaseQueue getConsumedQueue();
+    public String getQueueName();
+
+    /**
+     * 预取消息个数
+     * http://www.rabbitmq.com/blog/2012/05/11/some-queuing-theory-throughput-latency-and-bandwidth/
+     *
+     * @return
+     */
+    public Integer getPreFetchSize();
 
     public interface AutoAckEnable {
         default boolean autoAck() {

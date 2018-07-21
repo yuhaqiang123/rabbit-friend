@@ -14,7 +14,7 @@ import java.util.Set;
 public class BaseExchange implements Exchange {
     private String name;
 
-    private ExchangeType type;
+    private ExchangeType type = ExchangeType.topic;
 
     private Channel channel;
 
@@ -22,11 +22,15 @@ public class BaseExchange implements Exchange {
 
     private Boolean autoDelete = false;
 
-    private Map<String, Object> arguments;
+    private Map<String, Object> arguments = new java.util.HashMap<>();
 
     public BaseExchange(String name, ExchangeType type) {
         this.name = name;
         this.type = type;
+    }
+
+    public BaseExchange(String name) {
+        this(name, ExchangeType.topic);
     }
 
     public void setChannel(Channel channel) {
@@ -35,8 +39,8 @@ public class BaseExchange implements Exchange {
 
 
     @Override
-    public Map<String, String> getHeaders() {
-        return null;
+    public Map<String, Object> getHeaders() {
+        return arguments;
     }
 
     @Override
@@ -88,8 +92,9 @@ public class BaseExchange implements Exchange {
     }
 
     @Override
-    public Map setHeaderEntry(String key, Object value) {
-        return null;
+    public Map<String, Object> setHeaderEntry(String key, Object value) {
+        arguments.put(key, value);
+        return this.arguments;
     }
 
 

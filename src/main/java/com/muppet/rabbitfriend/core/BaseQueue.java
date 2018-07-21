@@ -33,7 +33,7 @@ public class BaseQueue implements Queue {
      */
     private Boolean autoDelete = false;
 
-    private Map<String, Object> arguments;
+    private Map<String, Object> arguments = new java.util.HashMap<>();
 
 
     public BaseQueue() {
@@ -50,8 +50,8 @@ public class BaseQueue implements Queue {
     }
 
     @Override
-    public Map<String, String> getHeaders() {
-        return null;
+    public Map<String, Object> getHeaders() {
+        return arguments;
     }
 
     public String getName() {

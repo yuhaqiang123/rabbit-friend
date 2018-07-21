@@ -5,6 +5,6 @@ package com.muppet.rabbitfriend.core;
  *
  * @description
  */
-public interface Queue extends HeadersConfigurable {
+public interface Queue extends HeadersConfigurable<Object> {
 
 }

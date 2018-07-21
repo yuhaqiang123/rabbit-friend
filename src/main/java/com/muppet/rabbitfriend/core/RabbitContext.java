@@ -4,16 +4,18 @@ import com.google.common.base.Charsets;
 import com.google.gson.Gson;
 import com.muppet.util.GsonUtil;
 import com.rabbitmq.client.AMQP;
-import com.rabbitmq.client.Address;
 import com.rabbitmq.client.Channel;
-import com.rabbitmq.client.Connection;
-import com.rabbitmq.client.ConnectionFactory;
 import com.rabbitmq.client.Envelope;
-import org.apache.commons.lang.StringUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.springframework.security.access.method.P;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.function.Consumer;
 import java.util.function.Function;
 
 /**
@@ -34,6 +36,10 @@ public class RabbitContext {
 
     private RabbitmqDelegate defaultDelegate;
 
+    private List<Integer> delayTimes = new ArrayList<>();
+
+
+    private Map<Class, Consumer<?>> callbackErrorHandler = new HashMap<>();
 
     private MessageConvert defaultMessageConvertor = new MessageConvert() {
         @Override
@@ -53,6 +59,30 @@ public class RabbitContext {
         }
     };
 
+
+    public RabbitContext registerDelayQueue(Integer delayTime) {
+        delayTimes.add(delayTime);
+        return this;
+    }
+
+    public List<Integer> getDelayTimes() {
+        return delayTimes;
+    }
+
+    public <T> RabbitContext registerCallbackErrorHandler(Class<T> clazz, Consumer<T> consumer) {
+        callbackErrorHandler.put(clazz, consumer);
+        return this;
+    }
+
+
+    public RpcProducer createRpcProducer(String exchangeName) {
+        return new RpcProducer(this).setExchange(new BaseExchange(exchangeName));
+    }
+
+
+    public ProducerCompositor createProducer(BaseExchange exchange) {
+        return new ProducerCompositor(this).setExchange(exchange);
+    }
 
     private RabbitContext(RabbitConfiguration configuration) {
         this.configuration = configuration;
@@ -92,7 +122,13 @@ public class RabbitContext {
     public BaseQueue declareQueueIfAbsent(String name) {
         BaseQueue queue = new BaseQueue();
         queue.setName(name);
-        defaultDelegate.declareQueueIfAbsent(queue);
+        declareQueue(queue);
+        return queue;
+    }
+
+    public BaseQueue declareQueue(BaseQueue queue) {
+        defaultDelegate.declareQueue(queue);
+        logger.debug("declare queue[{}]", queue.getName());
         return queue;
     }
 
@@ -101,13 +137,14 @@ public class RabbitContext {
         //TODO 初始化交换机的默认参数
         channelExecute((channel) -> {
             try {
-                com.rabbitmq.client.AMQP.Exchange.DeclareOk declareOk = channel.exchangeDeclare(exchange.getName(), exchange.getType().toString(), exchange.getDurable(), exchange.getAutoDelete(), null);
+                com.rabbitmq.client.AMQP.Exchange.DeclareOk declareOk = channel.exchangeDeclare(exchange.getName(), exchange.getType().toString(), exchange.getDurable(), exchange.getAutoDelete(), exchange.getHeaders());
                 return exchange;
             } catch (Exception e) {
                 throw new RabbitFriendException(e);
                 //return null;
             }
         });
+        logger.debug("declare exchange[{}]", GsonUtil.toDefaultJson(exchange));
     }
 
     public <T> T channelExecute(Function<Channel, T> function) {
@@ -149,9 +186,32 @@ public class RabbitContext {
         return this;
     }
 
+    public void registerConsuimerCompositor(ConsumerCompositor consumerCompositor, Integer consumerNum) {
+        if (consumerNum == null) {
+            consumerNum = 1;
+        }
+        for (int i = 0; i < consumerNum; i++) {
+            registerConsumer(consumerCompositor);
+        }
+    }
+
+    public void registerConsuimerCompositor(ConsumerCompositor consumerCompositor) {
+        registerConsuimerCompositor(consumerCompositor, 1);
+    }
+
     public void registerConsumer(BaseConsumer consume) {
+        registerConsumer(consume, consume.getDelegate() == null ? true : false);
+    }
+
+    public void registerConsumer(BaseConsumer consume, Boolean isDefaultDelegate) {
         consume.start();
-        defaultDelegate.channelExecute(channel -> {
+        RabbitmqDelegate delegate = null;
+        if (isDefaultDelegate) {
+            delegate = defaultDelegate;
+        } else {
+            delegate = consume.getDelegate();
+        }
+        delegate.channelExecute(channel -> {
             try {
                 //consumerTag 看看能不能用
                 consume.setChannel(channel);
@@ -161,6 +221,7 @@ public class RabbitContext {
             }
             return null;
         });
+        logger.debug("register consumer on queue:{},  with args:{}", consume.getQueueName(), consume.getHeaders());
     }
 
     public void bind(BaseExchange exchange, BaseQueue queue, RoutingKey routingKey) {
@@ -176,5 +237,9 @@ public class RabbitContext {
 
     public RabbitmqDelegateFactory getDelegateFactory() {
         return delegateFactory;
+    }
+
+    public <T> Consumer<T> getCallbackErrorHandler(Class<T> clazz) {
+        return (Consumer<T>) callbackErrorHandler.get(clazz);
     }
 }

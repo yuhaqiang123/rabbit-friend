@@ -4,6 +4,8 @@ import com.muppet.rabbitfriend.core.RabbitFriendException;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import java.util.function.Consumer;
+
 /**
  * Created by yuhaiqiang on 2018/7/8.
  *
@@ -157,8 +159,33 @@ public class ExceptionDSL {
     }
 
     public static ExceptionWrapper throwable(RunnableWithThrowable runnable) {
-        return self.throwable(runnable);
+        return throwable(runnable, () -> {
+        });
     }
+
+    public static ExceptionWrapper throwable(RunnableWithThrowable runnable, Runnable finallyFunc) {
+        return throwable(runnable, finallyFunc, (Consumer<Throwable>) null);
+    }
+
+    public static ExceptionWrapper throwable(RunnableWithThrowable runnable, Runnable finallyFunc, Consumer<Throwable> exceptionFunc) {
+        try {
+            return self.throwable(runnable);
+        } catch (Throwable throwable) {
+            if (exceptionFunc != null) {
+                exceptionFunc.accept(throwable);
+            }
+            return null;
+        } finally {
+            if (finallyFunc != null) {
+                finallyFunc.run();
+            }
+        }
+    }
+
+    public static ExceptionWrapper throwable(RunnableWithThrowable runnable, Runnable finallyFunc, Runnable exceptionFunc) {
+        return throwable(runnable, finallyFunc, (throwable) -> exceptionFunc.run());
+    }
+
 
     public static ExceptionWrapper throwable(String msg, RunnableWithThrowable runnable) {
         return self.throwable(runnable, msg);
