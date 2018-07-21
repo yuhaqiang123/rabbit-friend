@@ -22,12 +22,19 @@ public class TestNeedReplyMessage extends BaseTest {
 
     @Test
     public void testProducer() {
+        /**
+         * 定义生产者
+         */
         ProducerCompositor producerCompositor = context.createProducer(exchange);
         producerCompositor.start();
 
+        /**
+         * 可回复消息
+         */
         BaseNeedReplyMessage base = new BaseNeedReplyMessage();
         base.setRoutingkey("TestQueue");
         base.a = new A();
+        //发送消息，并声明回调
         producerCompositor.send(base, new AsyncMessageReplyCallback(null) {
             @Override
             public void run(MessageReply r) {
@@ -40,6 +47,9 @@ public class TestNeedReplyMessage extends BaseTest {
 
     @Test
     public void testConsumer() {
+        /**
+         * 注册消费者，需要指定消费的队列
+         */
         context.registerConsumer(new ConsumerCompositor(context) {
             @Override
             public String getQueueName() {
@@ -50,6 +60,7 @@ public class TestNeedReplyMessage extends BaseTest {
             public void handle(Message message) {
                 BaseNeedReplyMessage baseNeedReplyMessage = message.cast();
                 logger.debug(gson.toJson(baseNeedReplyMessage));
+                //回复该消息，回复消息类型为MessageReply类型
                 baseNeedReplyMessage.reply(new BaseMessageReply());
                 stop();
             }
@@ -62,10 +73,16 @@ public class TestNeedReplyMessage extends BaseTest {
         public String res = "RESULT";
     }
 
+    /**
+     * 可回复消息
+     */
     class BaseNeedReplyMessage extends NeedReplyMessage {
         public A a;
     }
 
+    /**
+     * 消息回复
+     */
     class BaseMessageReply extends MessageReply {
         public String reply = "reply";
     }
