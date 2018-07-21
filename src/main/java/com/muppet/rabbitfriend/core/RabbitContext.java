@@ -11,7 +11,9 @@ import org.apache.logging.log4j.Logger;
 import org.springframework.security.access.method.P;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -34,6 +36,8 @@ public class RabbitContext {
 
     private RabbitmqDelegate defaultDelegate;
 
+    private List<Integer> delayTimes = new ArrayList<>();
+
 
     private Map<Class, Consumer<?>> callbackErrorHandler = new HashMap<>();
 
@@ -55,8 +59,19 @@ public class RabbitContext {
         }
     };
 
-    public <T> void registerCallbackErrorHandler(Class<T> clazz, Consumer<T> consumer) {
+
+    public RabbitContext registerDelayQueue(Integer delayTime) {
+        delayTimes.add(delayTime);
+        return this;
+    }
+
+    public List<Integer> getDelayTimes() {
+        return delayTimes;
+    }
+
+    public <T> RabbitContext registerCallbackErrorHandler(Class<T> clazz, Consumer<T> consumer) {
         callbackErrorHandler.put(clazz, consumer);
+        return this;
     }
 
 
@@ -171,12 +186,21 @@ public class RabbitContext {
         return this;
     }
 
-    public void registerConsumer(BaseConsumer consumer) {
-        registerConsumer(consumer, consumer.getDelegate() == null);
+    public void registerConsuimerCompositor(ConsumerCompositor consumerCompositor, Integer consumerNum) {
+        if (consumerNum == null) {
+            consumerNum = 1;
+        }
+        for (int i = 0; i < consumerNum; i++) {
+            registerConsumer(consumerCompositor);
+        }
     }
 
     public void registerConsuimerCompositor(ConsumerCompositor consumerCompositor) {
-        registerConsumer(consumerCompositor);
+        registerConsuimerCompositor(consumerCompositor, 1);
+    }
+
+    public void registerConsumer(BaseConsumer consume) {
+        registerConsumer(consume, consume.getDelegate() == null ? true : false);
     }
 
     public void registerConsumer(BaseConsumer consume, Boolean isDefaultDelegate) {

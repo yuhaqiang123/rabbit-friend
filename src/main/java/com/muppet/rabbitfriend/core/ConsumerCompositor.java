@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Created by yuhaiqiang on 2018/7/14.
@@ -19,9 +20,14 @@ public abstract class ConsumerCompositor extends BaseConsumer implements Consume
         super(context);
     }
 
+    protected AtomicBoolean started = new AtomicBoolean(false);
 
     @Override
     public void start() {
+        if (!started.compareAndSet(false, true)) {
+            return;
+        }
+
         super.start();
         RpcConsumer rpcConsumer = new RpcConsumer(context) {
             @Override

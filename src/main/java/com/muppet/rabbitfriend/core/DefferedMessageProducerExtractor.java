@@ -18,14 +18,11 @@ import java.util.Optional;
  * @description
  */
 public class DefferedMessageProducerExtractor implements MessageProducerExtractor {
-
-
     private RabbitContext context;
 
     private BaseExchange defferedExchange;
 
     private BaseQueue deadQueue;
-
 
     private Logger logger = LogManager.getLogger(this.getClass());
 
@@ -48,23 +45,22 @@ public class DefferedMessageProducerExtractor implements MessageProducerExtracto
         }
         DefferedMessage defferedMessage = message.cast();
         AMQP.BasicProperties properties = message.getBasicProperties();
+        Integer defferedTime = Optional.ofNullable(((DefferedMessage) message).getDefferedTime()).orElseGet(() -> 0);
+
         if (properties == null) {
-            Integer defferedTime = Optional.ofNullable(((DefferedMessage) message).getDefferedTime()).orElseGet(() -> 0);
             properties = new AMQP.BasicProperties.Builder()
                     .expiration(String.valueOf(String.valueOf(defferedTime)))
                     .deliveryMode(message.isPersistent() == true ? 2 : 1)
                     .priority(message.getPriority())
-                    .headers(new HashMap<>())
                     .timestamp(new Date(System.currentTimeMillis()))
                     .build();
         } else {
-            properties.setExpiration(String.valueOf(defferedMessage.getDefferedTime()));
+            properties.setExpiration(String.valueOf(defferedTime));
         }
         Map<String, Object> headers = properties.getHeaders();
         if (headers == null) {
             headers = new HashMap<>();
         }
-        logger.debug(headers.getClass().getName());
         headers.put(Constants.HEADER_DEFFERED_EXCHANGE_NAME, defferedExchange.getName());
         headers.put(Constants.HEADER_DEFFERED_MESSAGE_TIME, String.valueOf(defferedMessage.getDefferedTime()));
         AMQP.BasicProperties finalProperties = properties;

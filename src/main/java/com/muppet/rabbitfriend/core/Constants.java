@@ -32,5 +32,6 @@ public class Constants {
 
     public static final String HEADER_DEFFERED_MESSAGE_TIME = HEADER_DEFAULT_PREFIX + "deffered.message.time";
 
+    public static final String HEADER_ROUTING_KEY = HEADER_DEFAULT_PREFIX + "routing.key";
 
 }

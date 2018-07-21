@@ -35,6 +35,7 @@ public class RetryMessageProducer extends BaseProducer implements MessageProduce
     @Override
     public void start() {
         super.start();
+
         DEFAULT_DEAD_LETTER_EXCHANGE = exchange.getName() + Constants.DEAD_LETTER_EXCHANGE_SUFFIX;
         DEFAULT_DEAD_LETTER_QUEUE = exchange.getName() + Constants.DEAD_LETTER_QUEUE_SUFFIX;
         deadExchange = new BaseExchange(DEFAULT_DEAD_LETTER_EXCHANGE, ExchangeType.topic);
@@ -44,6 +45,8 @@ public class RetryMessageProducer extends BaseProducer implements MessageProduce
         queue.setHeaderEntry("x-dead-letter-exchange", exchange.getName());
         queue = context.declareQueue(queue);
         context.bind(deadExchange, queue, new RoutingKey("*"));
+
+
     }
 
     public void send(RetriableMessage message, BaseExchange exchange) {
@@ -76,6 +79,7 @@ public class RetryMessageProducer extends BaseProducer implements MessageProduce
         if (headers == null) {
             headers = new java.util.HashMap<>();
         }
+
         headers.put(Constants.RETRY_EXCHANGE_NAME, getDeadExchange().getName());
         headers.put(Constants.HEADER_EXCHANGE_NAME, getExchange().getName());
         headers.put(Constants.HEADER_RETRY_TIMES_KEY, "0");

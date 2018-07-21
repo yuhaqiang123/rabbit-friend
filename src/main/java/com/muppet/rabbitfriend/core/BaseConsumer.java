@@ -144,6 +144,10 @@ public abstract class BaseConsumer implements Consumer, Lifecycle, Consume, Cons
         });
         ExceptionDSL.throwable(() -> FieldUtils.writeField(message, "ackFunc", ackFunc, true));
 
+        if (message instanceof TimeoutMessage) {
+            AspectAddPropertyUtil.addGetTimeoutAspect(message.cast(), Long.valueOf(headers.get(Constants.HEADER_TIMEOUT_KEY).toString()));
+        }
+
         extractors.stream().forEach((extractor) -> extractor.extracte(message));
 
         //Handle message before Interceptor

@@ -32,6 +32,8 @@ public class BaseTest {
 
     protected BaseQueue queue;
 
+    protected RoutingKey routingKey;
+
     protected Gson gson = GsonUtil.getGson();
 
     protected CountDownLatch latch = new CountDownLatch(1);
@@ -69,7 +71,8 @@ public class BaseTest {
         context.declareExchange(exchange);
 
         queue = context.declareQueueIfAbsent("TestQueue");
-        context.bind(exchange, queue, new RoutingKey("TestQueue"));
+        routingKey = new RoutingKey("TestQueue");
+        context.bind(exchange, queue, routingKey);
     }
 
 

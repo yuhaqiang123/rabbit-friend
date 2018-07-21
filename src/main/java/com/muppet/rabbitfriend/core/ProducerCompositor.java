@@ -28,13 +28,15 @@ public class ProducerCompositor extends BaseProducer implements Producer, Messag
     @Override
     public void start() {
         super.start();
-
+        initializeDelegate();
         rpcProducer = new RpcProducer(context);
         rpcProducer.setExchange(getExchange());
+        rpcProducer.setDelegate(delegate);
         rpcProducer.start();
 
         retryMessageProducer = new RetryMessageProducer(context);
         retryMessageProducer.setExchange(getExchange());
+        retryMessageProducer.setDelegate(delegate);
         retryMessageProducer.start();
 
         producers.add(rpcProducer);
@@ -69,9 +71,9 @@ public class ProducerCompositor extends BaseProducer implements Producer, Messag
         rpcProducer.send(message, callback, getSendExchange(message));
     }
 
-    public void send(RetriableMessage message) {
+    public void send(Message message) {
         extracte(message.cast());
-        retryMessageProducer.send(message, getSendExchange(message.cast()));
+        send(message, getSendExchange(message.cast()));
     }
 
     @Override
@@ -83,4 +85,6 @@ public class ProducerCompositor extends BaseProducer implements Producer, Messag
         this.exchange = exchange;
         return this;
     }
+
+
 }

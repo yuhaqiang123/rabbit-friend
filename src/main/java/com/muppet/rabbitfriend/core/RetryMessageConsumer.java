@@ -66,7 +66,7 @@ class RetryMessageConsumerExtractor implements MessageConsumerExtractor {
 
         Map<String, Object> headers = message.getBasicProperties().getHeaders();
         Integer retryTimes = Integer.valueOf(headers.get((Constants.HEADER_RETRY_TIMES_KEY)).toString());
-        AspectAddPropertyUtil.addGetTimeoutAspect(message.cast(), Long.valueOf(headers.get(Constants.HEADER_TIMEOUT_KEY).toString()));
+
         AspectAddPropertyUtil.addGetCurrentRetryTimes(message.cast(), retryTimes);
         AspectAddPropertyUtil.addGetMaxRetryTimesRetry(message.cast(), Integer.valueOf(headers.get(Constants.HEADER_MAX_RETRY_TIMES).toString()));
         AspectAddPropertyUtil.addGetRetryInterval(message.cast(), Integer.valueOf(headers.get(Constants.HEADER_RETRY_INTERVAL_TIME).toString()));
