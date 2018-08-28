@@ -211,6 +211,20 @@ public class ExceptionDSL {
         return self.exceptionSafe(runnable);
     }
 
+    public static ExceptionWrapper unHandleExceptionSafe(ExceptionRunable runable) {
+        return self.exceptionSafe(() -> {
+            try {
+                runable.run();
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        });
+    }
+
+    public interface ExceptionRunable {
+        void run() throws Exception;
+    }
+
     public static ExceptionWrapper exceptionSafe(Runnable runnable, String msg) {
         return self.exceptionSafe(runnable, msg);
     }
